@@ -14,32 +14,32 @@ from src.logger import log_info, log_error
 def run_control_script(command: str):
     script_path = os.path.join(config.PROJECT_ROOT, "scripts", "control.py")
     python_exe = sys.executable
-    log_info(f"Executing external control: {command}")
+    log_info(f"执行外部控制: {command}")
     try:
         subprocess.run([python_exe, script_path, command], check=True)
     except subprocess.CalledProcessError as e:
-        log_error(f"Failed to execute control script: {e}")
+        log_error(f"执行控制脚本失败: {e}")
 
 def prepare_contract(engine: TestEngine):
-    """Wait for contract to be available"""
-    log_info("Waiting for contract information...")
+    """等待合约可用"""
+    log_info("正在等待合约信息...")
     for i in range(10):
         if engine.contract:
             return
         time.sleep(2)
-    log_error("Timeout waiting for contract!")
+    log_error("等待合约超时！")
 
 def test_2_1_1_connectivity(engine: TestEngine):
     log_info("\n>>> [Test 2.1.1] 连通性测试")
     engine.connect()
-    wait_for_reaction(msg="Waiting for connection and login")
+    wait_for_reaction(msg="等待连接和登录")
     # Verification is done via log inspection manually as per requirement, 
     # but we can assume success if no crash.
 
 def test_2_1_2_basic_trading(engine: TestEngine):
     log_info("\n>>> [Test 2.1.2] 基础交易功能测试 (开仓/平仓/撤单)")
     if not engine.contract:
-        log_error("No contract, skip trading test.")
+        log_error("无合约信息，跳过交易测试。")
         return
 
     # 1. Open
@@ -54,7 +54,7 @@ def test_2_1_2_basic_trading(engine: TestEngine):
         reference="Open"
     )
     engine.send_order(req_open)
-    wait_for_reaction(msg="Wait for Open Deal")
+    wait_for_reaction(msg="等待开仓成交")
 
     # 2. Close
     req_close = OrderRequest(
@@ -68,7 +68,7 @@ def test_2_1_2_basic_trading(engine: TestEngine):
         reference="Close"
     )
     engine.send_order(req_close)
-    wait_for_reaction(msg="Wait for Close Deal")
+    wait_for_reaction(msg="等待平仓成交")
 
     # 3. Cancel Test (Send order far away)
     req_cancel = OrderRequest(
@@ -82,7 +82,7 @@ def test_2_1_2_basic_trading(engine: TestEngine):
         reference="ToCancel"
     )
     vt_orderid = engine.send_order(req_cancel)
-    wait_for_reaction(msg="Wait for Order Inserted before Cancel")
+    wait_for_reaction(msg="等待撤单前的订单插入")
     
     if vt_orderid:
         # Extract ID
@@ -93,18 +93,18 @@ def test_2_1_2_basic_trading(engine: TestEngine):
             exchange=engine.contract.exchange
         )
         engine.cancel_order(req_c)
-        wait_for_reaction(msg="Wait for Cancel confirmation")
+        wait_for_reaction(msg="等待撤单确认")
 
 def test_2_2_1_disconnection(engine: TestEngine):
     log_info("\n>>> [Test 2.2.1] 系统连接异常监测功能 (断线重连)")
     
     # Disconnect
     run_control_script("DISCONNECT")
-    wait_for_reaction(msg="Wait for Disconnect Log")
+    wait_for_reaction(msg="等待断线日志")
     
     # Reconnect
     run_control_script("RECONNECT")
-    wait_for_reaction(msg="Wait for Reconnect Log")
+    wait_for_reaction(msg="等待重连日志")
 
 def test_2_2_3_repeat_order(engine: TestEngine):
     log_info("\n>>> [Test 2.2.3] 重复报单监测功能 (连续发3单)")
@@ -122,7 +122,7 @@ def test_2_2_3_repeat_order(engine: TestEngine):
             reference=f"Repeat{i}"
         )
         engine.send_order(req)
-        wait_for_reaction(msg=f"Wait for Repeat Order {i+1}")
+        wait_for_reaction(msg=f"等待重复报单 {i+1}")
 
 def test_2_4_1_order_check(engine: TestEngine):
     log_info("\n>>> [Test 2.4.1] 交易指令检查功能 (错误合约/价格)")
@@ -138,7 +138,7 @@ def test_2_4_1_order_check(engine: TestEngine):
         offset=Offset.OPEN
     )
     engine.send_order(req_inv_sym)
-    wait_for_reaction(msg="Wait for Invalid Symbol Check")
+    wait_for_reaction(msg="等待无效合约检查")
     
     # 2. Invalid Price Tick
     if engine.contract:
@@ -152,7 +152,7 @@ def test_2_4_1_order_check(engine: TestEngine):
             offset=Offset.OPEN
         )
         engine.send_order(req_inv_tick)
-        wait_for_reaction(msg="Wait for Invalid Tick Check")
+        wait_for_reaction(msg="等待无效Tick检查")
 
 def test_2_4_2_error_prompt(engine: TestEngine):
     log_info("\n>>> [Test 2.4.2] 错误提示功能 (资金不足/超限)")
@@ -168,14 +168,14 @@ def test_2_4_2_error_prompt(engine: TestEngine):
         offset=Offset.OPEN
     )
     engine.send_order(req_huge)
-    wait_for_reaction(msg="Wait for Insufficient Funds Error")
+    wait_for_reaction(msg="等待资金不足报错")
 
 def test_2_5_1_pause_trading(engine: TestEngine):
     log_info("\n>>> [Test 2.5.1] 暂停交易功能 (应急处置)")
     
     # Pause
     run_control_script("PAUSE")
-    wait_for_reaction(msg="Wait for Pause State")
+    wait_for_reaction(msg="等待暂停状态")
     
     # Try send order
     if engine.contract:
@@ -189,7 +189,7 @@ def test_2_5_1_pause_trading(engine: TestEngine):
             offset=Offset.OPEN
         )
         engine.send_order(req)
-        wait_for_reaction(msg="Wait for Pause Interception Log")
+        wait_for_reaction(msg="等待暂停拦截日志")
 
 def test_2_5_2_batch_cancel(engine: TestEngine):
     log_info("\n>>> [Test 2.5.2] 批量撤单功能 (需先重启或恢复状态)")
@@ -203,7 +203,7 @@ def test_2_5_2_batch_cancel(engine: TestEngine):
     # Quick fix: Manually set active=True in this test function (backdoor) or implement RESUME.
     
     engine.risk_manager.active = True # Force resume for testing
-    log_info("Force resumed trading for Batch Cancel test.")
+    log_info("为批量撤单测试强制恢复交易。")
     
     if not engine.contract: return
     
@@ -220,15 +220,15 @@ def test_2_5_2_batch_cancel(engine: TestEngine):
             reference=f"Batch{i}"
         )
         engine.send_order(req)
-        wait_for_reaction(msg=f"Send Batch Order {i}")
+        wait_for_reaction(msg=f"发送批量订单 {i}")
         
     # Cancel All
     active_orders = engine.get_all_active_orders()
-    log_info(f"Found {len(active_orders)} active orders to cancel.")
+    log_info(f"发现 {len(active_orders)} 个活动订单待撤销。")
     for order in active_orders:
         req = order.create_cancel_request()
         engine.cancel_order(req)
         # Wait for each cancel? Or batch then wait?
         # Requirement says "Atomic operation sleep 7s". 
         # So sleep after each cancel.
-        wait_for_reaction(msg=f"Wait for Cancel {order.vt_orderid}")
+        wait_for_reaction(msg=f"等待撤单 {order.vt_orderid}")

@@ -11,12 +11,12 @@ from src.logger import log_info
 
 def wait_for_reaction(seconds: int = config.ATOMIC_WAIT_SECONDS, msg: str = ""):
     """
-    Atomic wait function to ensure gateway/counter has enough time to process requests.
+    原子等待函数，确保网关/柜台有足够的时间处理请求。
     """
     if msg:
-        log_info(f"Wait {seconds}s for: {msg}")
+        log_info(f"等待 {seconds} 秒: {msg}")
     else:
-        log_info(f"Wait {seconds}s for reaction...")
+        log_info(f"等待 {seconds} 秒以待响应...")
     time.sleep(seconds)
 
 def _now_cn() -> datetime:

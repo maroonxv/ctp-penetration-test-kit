@@ -19,12 +19,12 @@ from vnpy.trader.object import OrderRequest, CancelRequest, SubscribeRequest, Co
 from vnpy.trader.constant import Exchange, OrderType, Direction, Offset, Status, Product
 from vnpy_ctptest import CtptestGateway
 
-# --- Configuration ---
+# --- 配置 ---
 TEST_SYMBOL = "IF2601"
 
-# Market Price Reference: ~4649
-SAFE_BUY_PRICE = 4000.0   # Buy Limit @ 4000 (Wait)
-DEAL_BUY_PRICE = 4660.0   # Buy Limit @ 4660 (Deal)
+# 市场价格参考: ~4649
+SAFE_BUY_PRICE = 4000.0   # 买入限价 @ 4000 (等待)
+DEAL_BUY_PRICE = 4660.0   # 买入限价 @ 4660 (成交)
 
 RISK_LIMIT_ORDER_COUNT = 5
 RISK_LIMIT_CANCEL_COUNT = 5
@@ -35,7 +35,7 @@ class FileLogger:
     def __init__(self, filepath):
         self.filepath = filepath
         with open(self.filepath, 'a', encoding='utf-8') as f:
-            f.write(f"\n=== Test Started at {datetime.now()} ===\n")
+            f.write(f"\n=== 测试开始于 {datetime.now()} ===\n")
     
     def log(self, msg: str, also_print: bool = True):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
@@ -95,9 +95,9 @@ class TestRiskManager:
         self.max_order_count = RISK_LIMIT_ORDER_COUNT
         self.max_cancel_count = RISK_LIMIT_CANCEL_COUNT
         
-        # New: Per-symbol tracking
+        # 新增：分合约追踪
         self.symbol_order_count = {} 
-        self.max_symbol_order_count = 2  # Trigger on 3rd
+        self.max_symbol_order_count = 2  # 第3次触发报警
 
     def check_order(self, req: OrderRequest) -> bool:
         if not self.active:
@@ -212,7 +212,7 @@ class ComprehensiveTester:
             print_log(f"【验证提醒】未在{timeout}秒内捕获到报错: {description}")
 
     def on_contract(self, event: Event):
-        # We manually check contracts in run()
+        # 我们在 run() 中手动检查合约
         pass
 
     def _process_order(self, order: OrderData):
@@ -328,18 +328,18 @@ class ComprehensiveTester:
         self.contract = target_contract
         print_log(f"成功锁定测试合约: {self.contract.vt_symbol}")
         
-        # Subscribe
+        # 订阅
         self.gateway.subscribe(SubscribeRequest(symbol=self.contract.symbol, exchange=self.contract.exchange))
         print_log(f"已订阅行情")
         time.sleep(WAIT_SECONDS)
         
         self.test_started = True
 
-        # --- Test Sequence ---
+        # --- 测试流程 ---
 
-        # 1. Open Position (Buy Limit)
+        # 1. 开仓 (买入限价)
         print_log("\n>>> [1] 测试：开仓 (买入成交)")
-        # Order A: Deal Price (~4660)
+        # 订单 A: 成交价 (~4660)
         print_log(f"   [1.A] 发送成交单 (价格 {DEAL_BUY_PRICE})")
         req_deal = OrderRequest(
             symbol=self.contract.symbol,
@@ -354,7 +354,7 @@ class ComprehensiveTester:
         self.send_order(req_deal)
         time.sleep(WAIT_SECONDS)
 
-        # 2. Close Position (Sell Limit)
+        # 2. 平仓 (卖出限价)
         print_log("\n>>> [2] 测试：平仓 (卖出成交)")
         print_log(f"   [2.A] 发送平仓单 (价格 {DEAL_BUY_PRICE})")
         req_close = OrderRequest(
@@ -370,7 +370,7 @@ class ComprehensiveTester:
         self.send_order(req_close)
         time.sleep(WAIT_SECONDS)
 
-        # 3. Cancel Order (Send & Cancel)
+        # 3. 撤单 (发送并撤销)
         print_log("\n>>> [3] 测试：撤单 (发送4600单并撤销)")
         req_cancel_test = OrderRequest(
             symbol=self.contract.symbol,
@@ -394,9 +394,9 @@ class ComprehensiveTester:
              self.cancel_order(req_c)
         time.sleep(WAIT_SECONDS)
 
-        # 4. Repeat Orders (Trigger Specific Contract Alert)
+        # 4. 重复报单 (触发特定合约报警)
         print_log("\n>>> [4] 测试：重复报单监测 (针对 IF2601 连续发3单)")
-        # Send 3 orders to trigger limit
+        # 发送3个订单以触发限制
         for i in range(3):
             req_repeat = OrderRequest(
                 symbol=self.contract.symbol,
@@ -412,7 +412,7 @@ class ComprehensiveTester:
             time.sleep(0.5)
         time.sleep(WAIT_SECONDS)
 
-        # 5. Duplicate Cancel Test
+        # 5. 重复撤单测试
         print_log("\n>>> [5] 测试：重复撤单 (对同一订单重复发送撤单请求)")
         req_dup_cancel = OrderRequest(
             symbol=self.contract.symbol,
@@ -420,7 +420,7 @@ class ComprehensiveTester:
             direction=Direction.LONG,
             type=OrderType.LIMIT,
             volume=1,
-            price=4600, # Safe price, won't fill
+            price=4600, # 安全价格，不会成交
             offset=Offset.OPEN,
             reference="DupCancel"
         )
@@ -440,7 +440,7 @@ class ComprehensiveTester:
              self.cancel_order(req_c_dup)
         time.sleep(WAIT_SECONDS)
         
-        # 6. Invalid Symbol
+        # 6. 无效合约
         print_log("\n>>> [6] 测试：错误防范 (无效合约)")
         self.send_order(OrderRequest(
             symbol="INVALID",
@@ -454,7 +454,7 @@ class ComprehensiveTester:
         ))
         time.sleep(WAIT_SECONDS)
 
-        # 7. Invalid Price Tick
+        # 7. 无效价格Tick
         print_log("\n>>> [7] 测试：错误防范 (无效价格Tick)")
         self.send_order(OrderRequest(
             symbol=self.contract.symbol,
@@ -468,7 +468,7 @@ class ComprehensiveTester:
         ))
         time.sleep(WAIT_SECONDS)
 
-        # 8. Large Volume / Insufficient Funds
+        # 8. 大额/资金不足
         print_log("\n>>> [8] 测试：资金不足/超限")
         self.send_order(OrderRequest(
             symbol=self.contract.symbol,
@@ -483,7 +483,7 @@ class ComprehensiveTester:
         self._report_error_if_any(r"资金不足", "资金不足报错")
         time.sleep(WAIT_SECONDS)
         
-        # 9. Emergency Stop (Commented out)
+        # 9. 应急处置 (已注释)
         # print_log("\n>>> [9] 测试：应急处置 (暂停交易)")
         # self.risk_manager.emergency_stop()
         # self.send_order(OrderRequest(
@@ -498,7 +498,7 @@ class ComprehensiveTester:
         # ))
         # time.sleep(WAIT_SECONDS)
         
-        # Prepare for Cancel All: Send 2 active orders
+        # 准备批量撤单：发送2个活动订单
         print_log("\n>>> [10前置] 发送两个挂单供批量撤单测试")
         for i in range(2):
             self.send_order(OrderRequest(
@@ -514,7 +514,7 @@ class ComprehensiveTester:
             time.sleep(0.5)
         time.sleep(2)
 
-        # 10. Cancel All Orders
+        # 10. 全部撤单
         print_log("\n>>> [10] 测试：全部撤单 (批量撤销剩余活动订单)")
         active_orders = [o for o in self.orders.values() if o.is_active()]
         if active_orders:
