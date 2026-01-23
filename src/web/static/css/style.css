@@ -157,15 +157,17 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Log Container */
 #log-container {
-    background-color: #000000 !important;
-    border-left: 1px solid var(--border-color) !important;
-    border-radius: 0; /* Flat against the sidebar */
-    margin: 0;
-    height: 100vh !important;
-    padding: 20px;
+    background-color: #0d0d0e !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-m);
+    margin: 20px;
+    height: calc(100vh - 40px) !important;
+    padding: 15px;
     font-family: "SF Mono", "Menlo", "Monaco", "Courier New", monospace;
     font-size: 13px;
     line-height: 1.5;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .log-line {

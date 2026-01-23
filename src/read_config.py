@@ -1,5 +1,6 @@
 import os
-from typing import Dict
+import yaml
+from typing import Dict, Any
 
 def load_env(env_path: str) -> Dict[str, str]:
     env_vars = {}
@@ -15,12 +16,23 @@ def load_env(env_path: str) -> Dict[str, str]:
                 env_vars[key.strip()] = value.strip()
     return env_vars
 
+def load_yaml_config(config_path: str) -> Dict[str, Any]:
+    if not os.path.exists(config_path):
+        return {}
+    with open(config_path, 'r', encoding='utf-8') as f:
+        try:
+            return yaml.safe_load(f) or {}
+        except yaml.YAMLError:
+            return {}
+
 # 路径配置
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENV_PATH = os.path.join(PROJECT_ROOT, ".env")
+CONFIG_YAML_PATH = os.path.join(PROJECT_ROOT, "config.yaml")
 
-# 加载环境变量
+# 加载配置
 ENV_VARS = load_env(ENV_PATH)
+YAML_CONFIG = load_yaml_config(CONFIG_YAML_PATH)
 
 # 全局常量
 CTP_NAME = ENV_VARS.get("CTP_NAME", "Unknown")
@@ -44,7 +56,14 @@ CTP_SETTING = {
     "授权编码": CTP_AUTH_CODE
 }
 
-# 测试配置
-TEST_SYMBOL = "IF2602"  # 测试目标合约
-SAFE_BUY_PRICE = 4700.0
-DEAL_BUY_PRICE = 4800.0
+# 从 YAML 读取测试配置
+TEST_SYMBOL = YAML_CONFIG.get("test_symbol", "IF2602")
+SAFE_BUY_PRICE = float(YAML_CONFIG.get("safe_buy_price", 4700.0))
+DEAL_BUY_PRICE = float(YAML_CONFIG.get("deal_buy_price", 4800.0))
+
+# 从 YAML 读取风控阈值
+RISK_THRESHOLDS = YAML_CONFIG.get("risk_thresholds", {
+    "max_order_count": 5,
+    "max_cancel_count": 5,
+    "max_symbol_order_count": 2
+})

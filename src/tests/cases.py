@@ -1,6 +1,6 @@
 import time
 import traceback
-from src import config
+from src import read_config as config
 from src.core.engine import TestEngine
 from src.utils import wait_for_reaction, clean_environment
 from src.logger import log_info, log_error, log_warning

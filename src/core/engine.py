@@ -7,7 +7,7 @@ from vnpy.trader.event import EVENT_LOG, EVENT_CONTRACT, EVENT_ORDER, EVENT_TRAD
 from vnpy.trader.object import OrderRequest, CancelRequest, SubscribeRequest, ContractData, OrderData, TradeData, LogData, AccountData
 from vnpy_ctptest import CtptestGateway
 
-from src import config
+from src import read_config as config
 from src.logger import log_info, log_error, log_warning
 from src.core.risk import TestRiskManager
 from src.core.server import CommandServer

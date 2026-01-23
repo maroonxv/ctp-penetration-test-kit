@@ -1,0 +1,10 @@
+# 交易测试配置
+test_symbol: "IF2602"
+safe_buy_price: 4700.0
+deal_buy_price: 4800.0
+
+# 风控阈值配置
+risk_thresholds:
+  max_order_count: 20
+  max_cancel_count: 20
+  max_symbol_order_count: 10

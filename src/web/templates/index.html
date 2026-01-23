@@ -95,7 +95,7 @@
             </div>
 
             <!-- 右侧日志区 -->
-            <div class="col-md-9 p-0">
+            <div class="col-md-9">
                 <div id="log-container">
                     <div class="d-flex align-items-center justify-content-center h-100 text-secondary">
                         <small>Waiting for connection...</small>
@@ -111,6 +111,9 @@
 
         // 日志接收逻辑
         socket.on('new_log', function(data) {
+            // 智能滚动判定：在插入内容前，检查是否接近底部 (允许 50px 误差)
+            const isAtBottom = logContainer.scrollHeight - logContainer.scrollTop - logContainer.clientHeight < 50;
+
             const div = document.createElement('div');
             div.className = 'log-line';
             div.style.color = data.color;
@@ -118,8 +121,10 @@
             
             logContainer.appendChild(div);
             
-            // 自动滚动
-            logContainer.scrollTop = logContainer.scrollHeight;
+            // 如果之前在底部，则保持跟随最新日志
+            if (isAtBottom) {
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
             
             // 性能优化：限制最大行数 1000
             if (logContainer.children.length > 1000) {

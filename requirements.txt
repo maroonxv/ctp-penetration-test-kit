@@ -1,0 +1,10 @@
+Flask==3.1.2
+Flask-SocketIO==5.6.0
+vnpy==4.3.0
+vnpy_ctptest==6.7.2.1
+PyYAML==6.0.3
+eventlet==0.40.4
+loguru==0.7.3
+requests==2.32.5
+pandas==2.3.3
+tzlocal==5.3.1

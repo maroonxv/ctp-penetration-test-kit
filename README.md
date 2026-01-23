@@ -1,4 +1,50 @@
-# CTP 穿透测试报告
+# ctp-penetration-test-kit
+
+## 项目综述
+
+本项目专为期货公司 **CTP 穿透测试** 需求设计，旨在帮助开发者和交易员快速验证交易程序的合规性与稳定性。工具基于 `vnpy` 框架开发，提供了一套自动化的测试用例集，覆盖了穿透测试报告中要求的关键测试点，包括连通性测试、基础交易功能、异常监测、风控阈值管理及应急处理功能。
+
+通过本项目，您可以：
+- 快速执行标准化的穿透测试流程。
+- 自动生成部分测试记录日志。
+- 通过 Web 界面直观监控测试进度与资金状态。
+- 灵活配置测试合约与风控参数。
+
+## 快速开始
+
+### 1. 环境准备
+
+确保您已安装 Python 3.10+ 环境。
+
+```bash
+# 克隆项目
+git clone https://github.com/maroonxv/ctp-penetration-test-kit.git
+cd penetration_test
+
+# 安装依赖
+pip install -r requirements.txt
+```
+
+### 2. 配置参数
+
+1.  复制环境配置文件模板：
+    ```bash
+    cp .env.example .env
+    ```
+2.  编辑 `.env` 文件，填入您的 CTP 测试账户信息（账号、密码、BrokerID、前置机地址等）。
+3.  编辑 `config.yaml` 文件，配置测试合约代码、价格及风控阈值。
+
+### 3. 运行测试
+
+启动 Web 控制台：
+
+```bash
+python src/web/app.py
+```
+
+浏览器访问 `http://localhost:5006`，点击相应的测试按钮即可开始执行测试用例。
+
+---
 
 ## 2. 测试过程记录详情
 

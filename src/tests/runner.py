@@ -1,6 +1,6 @@
 import time
 import traceback
-from src import config
+from src import read_config as config
 from src.logger import setup_logger, log_info, log_error
 from src.core.engine import TestEngine
 from src.utils import is_trading_time, wait_for_reaction

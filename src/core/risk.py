@@ -1,5 +1,6 @@
 from vnpy.trader.object import OrderRequest, CancelRequest, OrderData
 from src.logger import log_info, log_warning, log_error
+from src import read_config as config
 
 class TestRiskManager:
     """
@@ -19,12 +20,12 @@ class TestRiskManager:
         self.cancel_count = 0
         
         # Thresholds
-        self.max_order_count = 5
-        self.max_cancel_count = 5
+        self.max_order_count = config.RISK_THRESHOLDS.get("max_order_count", 5)
+        self.max_cancel_count = config.RISK_THRESHOLDS.get("max_cancel_count", 5)
         
         # Symbol-level monitoring (for repeat order test)
         self.symbol_order_count = {} 
-        self.max_symbol_order_count = 2  # Alert on 3rd
+        self.max_symbol_order_count = config.RISK_THRESHOLDS.get("max_symbol_order_count", 2)  # Alert on 3rd
         
         # Session Order Tracking
         self.session_order_ids = set()

@@ -1,6 +1,6 @@
 import socket
 import threading
-from src import config
+from src import read_config as config
 from src.logger import log_info, log_error
 
 class CommandServer(threading.Thread):

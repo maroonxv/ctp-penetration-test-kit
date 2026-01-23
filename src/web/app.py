@@ -10,7 +10,7 @@ from flask_socketio import SocketIO
 from src.manager import TestManager
 from src.socket_handler import SocketIOHandler
 from src.tests import cases
-from src import config
+from src import read_config as config
 
 # 1. 初始化 Flask 与 SocketIO
 app = Flask(__name__)

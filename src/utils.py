@@ -6,7 +6,7 @@ try:
 except Exception:
     ZoneInfo = None
 
-from src import config
+from src import read_config as config
 from src.logger import log_info
 from vnpy.trader.object import OrderRequest, CancelRequest
 from vnpy.trader.constant import Direction, Offset, OrderType
