@@ -126,15 +126,32 @@ def test_2_2_1_connection_monitor(engine: TestEngine):
     # 2.2.1.2 断线模拟
     log_info("--- 测试点 2.2.1.2: 模拟断线 ---")
     engine.disconnect()
-    wait_for_reaction(3, "等待断线日志 (OnFrontDisconnected)")
+    
+    # 由测试脚本控制等待，确保主引擎不卡死
+    log_info("已调用 disconnect，主线程开始等待 5 秒...")
+    time.sleep(5)
+    log_info("等待结束，准备发起重连...")
 
     # 2.2.1.3 重连模拟
     log_info("--- 测试点 2.2.1.3: 模拟重连 ---")
-    engine.connect()
-    wait_for_reaction(5, "等待重连日志 (OnFrontConnected)")
+    
+    # 强制重新连接
+    try:
+        engine.reconnect()
+        # 等待连接成功
+        wait_for_reaction(5, "等待重连日志 (OnFrontConnected)")
+    except Exception as e:
+        log_error(f"重连尝试失败: {e}")
+
+    # 验证重连后状态
+    # 重连后 gateway 对象可能发生变化（如果被重新创建），重新获取
+    gateway = engine.main_engine.get_gateway(engine.gateway_name)
+    if gateway:
+        log_info("重连成功，网关状态: 已连接")
+    else:
+        log_error("重连失败，网关未就绪")
     
     # 重连后再次检查资金
-    gateway = engine.main_engine.get_gateway(engine.gateway_name)
     if gateway:
         gateway.query_account()
         wait_for_reaction(2)

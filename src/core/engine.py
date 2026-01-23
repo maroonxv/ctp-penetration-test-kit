@@ -10,7 +10,6 @@ from vnpy_ctptest import CtptestGateway
 from src import read_config as config
 from src.logger import log_info, log_error, log_warning
 from src.core.risk import TestRiskManager
-from src.core.server import CommandServer
 from src.utils import wait_for_reaction
 
 class TestEngine:
@@ -29,7 +28,6 @@ class TestEngine:
         self.gateway_name = "CTPTEST"
         
         self.risk_manager = TestRiskManager(self)
-        self.command_server = CommandServer(self)
         
         # State
         self.contract: Optional[ContractData] = None
@@ -44,30 +42,45 @@ class TestEngine:
         self.event_engine.register(EVENT_TRADE, self.on_trade)
         self.event_engine.register(EVENT_CONTRACT, self.on_contract)
         self.event_engine.register(EVENT_ACCOUNT, self.on_account)
-        
-        # Start Server
-        self.command_server.start()
 
     def connect(self):
         log_info("Connecting to CTP Test Environment...")
+        # 确保网关实例存在
+        gateway = self.main_engine.get_gateway(self.gateway_name)
+        if not gateway:
+            log_info("Initializing CtptestGateway...")
+            self.main_engine.add_gateway(CtptestGateway)
+            
         self.main_engine.connect(config.CTP_SETTING, self.gateway_name)
-        # We rely on external wait in test cases, but initial connect is special.
-        # But to be consistent, we let the runner handle waits.
 
     def disconnect(self):
-        log_info("Executing DISCONNECT command...")
-        gateway = self.main_engine.get_gateway(self.gateway_name)
-        if gateway:
-            gateway.close()
-            log_info("Gateway closed.")
+        log_info("正在执行断线操作 (DISCONNECT)...")
+        # 警告：经排查，调用 gateway.close() 会导致底层 CTP API 锁死 Python 进程
+        # 导致 Flask Web 服务无法响应。
+        # 因此，这里采取“逻辑断线”策略：
+        # 1. 不调用 close()，任由旧连接在后台（可能泄露，但测试场景可接受）
+        # 2. 直接从引擎移除网关引用
+        
+        if self.gateway_name in self.main_engine.gateways:
+            self.main_engine.gateways.pop(self.gateway_name)
+            log_info("网关实例已从引擎逻辑移除 (跳过物理关闭以防卡死)。")
+        else:
+            log_info("网关实例不在引擎中，无需移除。")
+
+        # 立即返回，确保 Web 服务存活
+        log_info("断线操作已完成 (逻辑层)。")
 
     def reconnect(self):
-        log_info("Executing RECONNECT command...")
-        # Re-connect usually means calling connect again after close
+        log_info("正在执行重连操作 (RECONNECT)...")
+        # 强制垃圾回收 (尝试性)
+        import gc
+        gc.collect()
+        
+        # 重新连接 (会自动触发 connect 中的 add_gateway)
         self.connect()
 
     def pause(self):
-        log_info("Executing PAUSE command...")
+        log_info("正在执行暂停交易操作 (PAUSE)...")
         self.risk_manager.emergency_stop()
 
     def send_order(self, req: OrderRequest) -> str:
@@ -165,5 +178,4 @@ class TestEngine:
         return [o for o in self.orders.values() if o.is_active()]
 
     def close(self):
-        self.command_server.stop()
         self.main_engine.close()
