@@ -44,9 +44,12 @@ def setup_logger():
 
 def log_info(msg: str):
     logging.info(msg)
+    print(f"[INFO] {msg}")
 
 def log_warning(msg: str):
     logging.warning(msg)
+    print(f"[WARNING] {msg}")
 
 def log_error(msg: str):
     logging.error(msg)
+    print(f"[ERROR] {msg}")

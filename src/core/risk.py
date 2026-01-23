@@ -25,6 +25,17 @@ class TestRiskManager:
         # Symbol-level monitoring (for repeat order test)
         self.symbol_order_count = {} 
         self.max_symbol_order_count = 2  # Alert on 3rd
+        
+        # Session Order Tracking
+        self.session_order_ids = set()
+        
+        # Last Log State (for deduplication)
+        self.last_log_order_count = -1
+        self.last_log_cancel_count = -1
+
+    def register_order(self, vt_orderid: str):
+        """Register order ID for current session tracking"""
+        self.session_order_ids.add(vt_orderid)
 
     def check_order(self, req: OrderRequest) -> bool:
         """
@@ -83,14 +94,23 @@ class TestRiskManager:
         """
         Callback when order is submitted (ACK).
         """
-        log_info(f"【监测】当前报单总数: {self.order_count}")
+        if self.order_count != self.last_log_order_count:
+            log_info(f"【监测】当前报单总数: {self.order_count}")
+            self.last_log_order_count = self.order_count
 
     def on_order_cancelled(self, order: OrderData) -> None:
         """
         Callback when order is cancelled.
         """
+        # Filter historical orders (not created in this session)
+        if order.vt_orderid not in self.session_order_ids:
+            return
+
         self.cancel_count += 1
-        log_info(f"【监测】当前撤单总数: {self.cancel_count}")
+        
+        if self.cancel_count != self.last_log_cancel_count:
+            log_info(f"【监测】当前撤单总数: {self.cancel_count}")
+            self.last_log_cancel_count = self.cancel_count
 
         if self.cancel_count > self.max_cancel_count:
             log_warning(f"【阈值预警】撤单总数({self.cancel_count})超过阈值({self.max_cancel_count})! 🚨")
@@ -117,5 +137,7 @@ class TestRiskManager:
         """
         self.order_count = 0
         self.cancel_count = 0
+        self.last_log_order_count = -1
+        self.last_log_cancel_count = -1
         self.symbol_order_count.clear()
         log_info("风控计数器已重置")

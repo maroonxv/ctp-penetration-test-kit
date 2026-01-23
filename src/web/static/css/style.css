@@ -1,0 +1,191 @@
+:root {
+    --bg-body: #000000;
+    --bg-sidebar: #161617;
+    --bg-card: #1c1c1e;
+    --bg-card-hover: #2c2c2e;
+    
+    --text-primary: #f5f5f7;
+    --text-secondary: #86868b;
+    
+    /* Apple-like Blue with a bit of gradient "vitality" */
+    --accent-color: #2997ff;
+    --accent-gradient: linear-gradient(135deg, #2997ff, #0077ed);
+    
+    --border-color: #424245;
+    
+    --radius-l: 18px;
+    --radius-m: 12px;
+    --radius-s: 8px;
+    
+    --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: var(--bg-body);
+    color: var(--text-primary);
+    font-family: var(--font-stack);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    letter-spacing: -0.02em; /* Apple-style tight tracking */
+    color: var(--text-primary);
+}
+
+/* Sidebar */
+.sidebar {
+    background-color: var(--bg-sidebar) !important;
+    border-right: 1px solid var(--border-color);
+    padding-top: 2rem;
+}
+
+.sidebar h4 {
+    font-size: 1.2rem;
+    margin-bottom: 1.5rem;
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent; /* Gradient Text */
+    display: inline-block;
+}
+
+/* Cards (Environment Info) */
+.card, .glass-panel {
+    background-color: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-m);
+    box-shadow: none;
+    backdrop-filter: none; /* Remove glass blur */
+}
+
+/* Accordion */
+.accordion-item {
+    background-color: transparent !important;
+    border: none !important;
+    margin-bottom: 8px;
+}
+
+.accordion-button {
+    background-color: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border-radius: var(--radius-m) !important;
+    font-size: 0.95rem;
+    font-weight: 500;
+    border: none !important;
+    box-shadow: none !important;
+    transition: background-color 0.2s ease;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: var(--bg-card-hover) !important;
+    color: var(--accent-color) !important;
+    box-shadow: none !important;
+}
+
+.accordion-button::after {
+    filter: invert(1) grayscale(100%) brightness(200%); /* Make arrow white */
+}
+
+.accordion-button:not(.collapsed)::after {
+    filter: invert(47%) sepia(86%) saturate(1478%) hue-rotate(193deg) brightness(101%) contrast(101%); /* Blue arrow */
+}
+
+.accordion-body {
+    background-color: transparent;
+    padding: 10px 4px 0 4px;
+}
+
+/* Buttons */
+.btn {
+    border-radius: 980px; /* Pill shape */
+    font-weight: 500;
+    font-size: 0.85rem;
+    padding: 8px 16px;
+    border: none;
+    transition: all 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+
+/* Primary/Action Buttons (Ghost style default) */
+.btn-outline-light {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.btn-outline-light:hover {
+    background-color: var(--text-primary);
+    color: #000;
+    transform: scale(1.02);
+}
+
+/* Warning Buttons */
+.btn-outline-warning {
+    background-color: rgba(255, 149, 0, 0.1);
+    color: #ff9f0a;
+}
+.btn-outline-warning:hover {
+    background-color: #ff9f0a;
+    color: #000;
+}
+
+/* Danger Buttons */
+.btn-outline-danger {
+    background-color: rgba(255, 69, 58, 0.1);
+    color: #ff453a;
+}
+.btn-outline-danger:hover {
+    background-color: #ff453a;
+    color: #fff;
+}
+.btn-danger {
+    background-color: #ff453a;
+    color: #fff;
+}
+
+/* Success/Reset Button */
+.btn-success {
+    background: linear-gradient(135deg, #30d158, #28cd41);
+    border: none;
+    font-weight: 600;
+}
+.btn-success:hover {
+    opacity: 0.9;
+    transform: scale(1.02);
+}
+
+/* Log Container */
+#log-container {
+    background-color: #000000 !important;
+    border-left: 1px solid var(--border-color) !important;
+    border-radius: 0; /* Flat against the sidebar */
+    margin: 0;
+    height: 100vh !important;
+    padding: 20px;
+    font-family: "SF Mono", "Menlo", "Monaco", "Courier New", monospace;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.log-line {
+    border-bottom: 1px solid #1a1a1a;
+    padding: 4px 0;
+}
+
+/* Custom Scrollbar (Subtle) */
+::-webkit-scrollbar {
+    width: 10px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #424245;
+    border-radius: 5px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+    background-color: #636366;
+}

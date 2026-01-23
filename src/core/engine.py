@@ -4,7 +4,7 @@ from typing import Dict, Optional, List
 from vnpy.event import EventEngine, Event
 from vnpy.trader.engine import MainEngine
 from vnpy.trader.event import EVENT_LOG, EVENT_CONTRACT, EVENT_ORDER, EVENT_TRADE, EVENT_POSITION, EVENT_ACCOUNT
-from vnpy.trader.object import OrderRequest, CancelRequest, SubscribeRequest, ContractData, OrderData, TradeData, LogData
+from vnpy.trader.object import OrderRequest, CancelRequest, SubscribeRequest, ContractData, OrderData, TradeData, LogData, AccountData
 from vnpy_ctptest import CtptestGateway
 
 from src import config
@@ -34,12 +34,16 @@ class TestEngine:
         # State
         self.contract: Optional[ContractData] = None
         self.orders: Dict[str, OrderData] = {}
+        self.last_account_data = None  # (balance, available)
+        self.account: Optional[AccountData] = None # 缓存最新的账户信息
+        self.session_order_ids = set() # 记录本次会话发出的订单ID
         
         # Event Hooks
         self.event_engine.register(EVENT_LOG, self.on_log)
         self.event_engine.register(EVENT_ORDER, self.on_order)
         self.event_engine.register(EVENT_TRADE, self.on_trade)
         self.event_engine.register(EVENT_CONTRACT, self.on_contract)
+        self.event_engine.register(EVENT_ACCOUNT, self.on_account)
         
         # Start Server
         self.command_server.start()
@@ -72,6 +76,11 @@ class TestEngine:
             if gateway:
                 vt_orderid = gateway.send_order(req)
                 log_info(f"【发单】{req.symbol} {req.direction.value} Price:{req.price} -> ID:{vt_orderid}")
+                
+                # Register order in Risk Manager for session tracking
+                self.risk_manager.register_order(vt_orderid)
+                self.session_order_ids.add(vt_orderid)
+                
                 return vt_orderid
         else:
             log_warning("Order rejected by Risk Manager.")
@@ -105,7 +114,10 @@ class TestEngine:
     def on_order(self, event: Event):
         order: OrderData = event.data
         self.orders[order.vt_orderid] = order
-        log_info(f"-> 收到委托回报: {order.vt_orderid} Status:{order.status.value}")
+        
+        # 仅当订单是本次会话产生的才打印日志
+        if order.vt_orderid in self.session_order_ids:
+            log_info(f"-> 收到委托回报: {order.vt_orderid} Status:{order.status.value}")
         
         if order.status == "AllTraded" or order.status == "PartTraded":
             pass # handled in trade
@@ -132,9 +144,22 @@ class TestEngine:
 
     def on_contract(self, event: Event):
         contract: ContractData = event.data
+        # 仅处理测试目标合约
         if contract.symbol == config.TEST_SYMBOL:
             self.contract = contract
             log_info(f"Contract found: {contract.vt_symbol}")
+        # 其他合约静默处理，避免日志刷屏
+
+    def on_account(self, event: Event):
+        # 仅缓存数据，不再自动打印日志
+        self.account = event.data
+
+    def log_current_account(self):
+        """主动打印当前账户资金"""
+        if self.account:
+             log_info(f"-> 账户资金: 余额={self.account.balance} 可用={self.account.available}")
+        else:
+             log_info("-> 尚未获取到账户资金信息")
 
     def get_all_active_orders(self) -> List[OrderData]:
         return [o for o in self.orders.values() if o.is_active()]

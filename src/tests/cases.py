@@ -2,7 +2,7 @@ import time
 import traceback
 from src import config
 from src.core.engine import TestEngine
-from src.utils import wait_for_reaction
+from src.utils import wait_for_reaction, clean_environment
 from src.logger import log_info, log_error, log_warning
 from vnpy.trader.object import OrderRequest, CancelRequest
 from vnpy.trader.constant import Direction, OrderType, Offset, Exchange
@@ -26,7 +26,15 @@ def test_2_1_1_connectivity(engine: TestEngine):
     
     # 实际上 connect 是异步的，这里只能通过日志观察
     wait_for_reaction(3, "等待连接与认证回调...")
-    log_info("请检查上方日志是否包含 'OnFrontConnected' 和 'OnRspUserLogin'")
+
+    # 查询账户资金
+    log_info("正在查询账户资金...")
+    wait_for_reaction(2, "等待流控冷却...")
+    gateway = engine.main_engine.get_gateway(engine.gateway_name)
+    if gateway:
+        gateway.query_account()
+        wait_for_reaction(5, "等待账户资金回报")
+        engine.log_current_account()
 
 def test_2_1_2_basic_trading(engine: TestEngine):
     """
@@ -37,6 +45,9 @@ def test_2_1_2_basic_trading(engine: TestEngine):
     if not engine.contract:
         log_error("未获取到合约信息，跳过测试")
         return
+
+    # 0. 环境清理
+    clean_environment(engine)
 
     # 1. 开仓 (2.1.2.1)
     log_info("--- 测试点 2.1.2.1: 开仓 ---")
@@ -51,7 +62,7 @@ def test_2_1_2_basic_trading(engine: TestEngine):
         reference="TestOpen"
     )
     engine.send_order(req_open)
-    wait_for_reaction(2, "等待开仓成交")
+    wait_for_reaction(10, "等待开仓成交")
 
     # 2. 平仓 (2.1.2.2)
     log_info("--- 测试点 2.1.2.2: 平仓 ---")
@@ -61,12 +72,12 @@ def test_2_1_2_basic_trading(engine: TestEngine):
         direction=Direction.SHORT,
         type=OrderType.LIMIT,
         volume=1,
-        price=config.DEAL_BUY_PRICE,
+        price=config.SAFE_BUY_PRICE, # 确保成交
         offset=Offset.CLOSE,
         reference="TestClose"
     )
     engine.send_order(req_close)
-    wait_for_reaction(2, "等待平仓成交")
+    wait_for_reaction(10, "等待平仓成交")
 
     # 3. 撤单 (2.1.2.3)
     log_info("--- 测试点 2.1.2.3: 撤单 ---")
@@ -81,7 +92,7 @@ def test_2_1_2_basic_trading(engine: TestEngine):
         reference="TestCancel"
     )
     vt_orderid = engine.send_order(req_cancel_test)
-    wait_for_reaction(1, "等待挂单确认")
+    wait_for_reaction(10, "等待挂单确认")
     
     if vt_orderid:
         orderid = vt_orderid.split(".")[-1]
@@ -91,7 +102,7 @@ def test_2_1_2_basic_trading(engine: TestEngine):
             exchange=engine.contract.exchange
         )
         engine.cancel_order(req_c)
-        wait_for_reaction(2, "等待撤单回报")
+        wait_for_reaction(10, "等待撤单回报")
 
 # =============================================================================
 # 2.2 异常监测
@@ -121,6 +132,13 @@ def test_2_2_1_connection_monitor(engine: TestEngine):
     log_info("--- 测试点 2.2.1.3: 模拟重连 ---")
     engine.connect()
     wait_for_reaction(5, "等待重连日志 (OnFrontConnected)")
+    
+    # 重连后再次检查资金
+    gateway = engine.main_engine.get_gateway(engine.gateway_name)
+    if gateway:
+        gateway.query_account()
+        wait_for_reaction(2)
+        engine.log_current_account()
 
 def test_2_2_2_count_monitor(engine: TestEngine):
     """
@@ -391,6 +409,16 @@ def test_2_5_1_pause_trading(engine: TestEngine):
         engine.send_order(req)
     
     wait_for_reaction(1, "验证被拦截")
+    
+    # 恢复交易权限（如果测试流程需要继续）并查询资金
+    # 这里演示恢复后确认资金状态
+    log_info("--- 恢复交易权限并确认状态 ---")
+    engine.risk_manager.active = True
+    gateway = engine.main_engine.get_gateway(engine.gateway_name)
+    if gateway:
+        gateway.query_account()
+        wait_for_reaction(2)
+        engine.log_current_account()
 
 def test_2_5_2_batch_cancel(engine: TestEngine):
     """
