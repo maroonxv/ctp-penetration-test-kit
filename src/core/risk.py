@@ -3,62 +3,62 @@ from src.logger import log_info, log_warning, log_error
 
 class TestRiskManager:
     """
-    穿透测试风控模块。
-    处理:
-    - 委托/撤单计数与监控
-    - 阈值预警
-    - 应急停止 (暂停交易)
-    - 无效指令检查 (最小变动价位, 合约代码)
+    Risk Management Module for Penetration Testing.
+    Handles:
+    - Order/Cancel counting & monitoring
+    - Threshold alerts
+    - Emergency stop (Pause trading)
+    - Invalid order checks (Price Tick, Symbol)
     """
     def __init__(self, tester=None):
         self.active = True
         self.tester = tester
         
-        # 计数器
+        # Counters
         self.order_count = 0
         self.cancel_count = 0
         
-        # 阈值
+        # Thresholds
         self.max_order_count = 5
         self.max_cancel_count = 5
         
-        # 合约级别监控 (用于重复报单测试)
+        # Symbol-level monitoring (for repeat order test)
         self.symbol_order_count = {} 
-        self.max_symbol_order_count = 2  # 第3次报警
+        self.max_symbol_order_count = 2  # Alert on 3rd
 
     def check_order(self, req: OrderRequest) -> bool:
         """
-        检查订单是否允许。
+        Check if order is allowed.
         """
-        # 1. 检查应急停止
+        # 1. Check Emergency Stop
         if not self.active:
             log_warning("【风控拦截】交易已暂停，拒绝报单")
             return False
             
-        # 2. 检查合约有效性 (模拟)
+        # 2. Check Symbol Validity (Simulation)
         if req.symbol == "INVALID_CODE" or req.symbol == "INVALID":
             log_error(f"⚠️ 【交易指令检查】发现合约代码错误: {req.symbol}")
-            # 在真实场景中，我们可能返回 False，但为了测试 CTP 拒绝，我们可以放行
-            # 然而，需求 2.4.1 指出系统应检查并拒绝。
-            # 所以我们要在这里拒绝它，以证明客户端检查功能。
-            # 但是等等，我们可能也想看到 CTP 返回错误？
-            # 让我们记录它。如果我们返回 False，证明“系统”（客户端）可以拦截它。
+            # In real scenario, we might return False, but to test CTP rejection we might let it pass
+            # However, requirement 2.4.1 says system should check and refuse.
+            # So we refuse it here to demonstrate client-side check.
+            # But wait, we might want to see CTP return error too? 
+            # Let's log it. If we return False, we prove "System" (client) can block it.
             return False
         
-        # 3. 检查最小变动价位
+        # 3. Check Price Tick
         if self.tester and self.tester.contract and req.symbol == self.tester.contract.symbol:
             tick = self.tester.contract.pricetick
             if tick > 0:
                 remainder = req.price % tick
-                # 浮点数容差
+                # Floating point tolerance
                 if not (abs(remainder) < 1e-6 or abs(remainder - tick) < 1e-6):
                     log_error(f"⚠️ 【交易指令检查】委托价格({req.price})不符合最小变动价位({tick})")
                     return False
 
-        # 4. 更新 & 检查计数器
+        # 4. Update & Check Counters
         self.order_count += 1
         
-        # 单合约检查
+        # Per-symbol check
         current_sym_count = self.symbol_order_count.get(req.symbol, 0) + 1
         self.symbol_order_count[req.symbol] = current_sym_count
         
@@ -72,7 +72,7 @@ class TestRiskManager:
 
     def check_cancel(self, req: CancelRequest) -> bool:
         """
-        检查撤单是否允许。
+        Check if cancel is allowed.
         """
         if not self.active:
             log_warning("【风控拦截】交易已暂停，拒绝撤单")
@@ -81,13 +81,13 @@ class TestRiskManager:
 
     def on_order_submitted(self, order: OrderData) -> None:
         """
-        订单提交时回调 (ACK)。
+        Callback when order is submitted (ACK).
         """
         log_info(f"【监测】当前报单总数: {self.order_count}")
 
     def on_order_cancelled(self, order: OrderData) -> None:
         """
-        订单撤销时回调。
+        Callback when order is cancelled.
         """
         self.cancel_count += 1
         log_info(f"【监测】当前撤单总数: {self.cancel_count}")
@@ -97,7 +97,25 @@ class TestRiskManager:
             
     def emergency_stop(self):
         """
-        触发应急停止。
+        Trigger emergency stop.
         """
         log_warning("【应急处置】触发暂停交易功能！系统将拒绝后续指令。")
         self.active = False
+
+    def set_thresholds(self, max_order=None, max_cancel=None, max_symbol_order=None):
+        """
+        Set risk thresholds dynamically.
+        """
+        if max_order: self.max_order_count = max_order
+        if max_cancel: self.max_cancel_count = max_cancel
+        if max_symbol_order: self.max_symbol_order_count = max_symbol_order
+        log_info(f"风控阈值已更新: Order={self.max_order_count}, Cancel={self.max_cancel_count}")
+
+    def reset_counters(self):
+        """
+        Reset all counters.
+        """
+        self.order_count = 0
+        self.cancel_count = 0
+        self.symbol_order_count.clear()
+        log_info("风控计数器已重置")

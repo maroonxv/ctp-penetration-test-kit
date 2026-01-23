@@ -5,12 +5,12 @@ from src.logger import log_info, log_error
 
 class CommandServer(threading.Thread):
     """
-    RPC 服务器，用于接收来自外部脚本 (scripts/control.py) 的控制指令。
-    指令: DISCONNECT, RECONNECT, PAUSE
+    RPC Server to receive control commands from external script (scripts/control.py).
+    Commands: DISCONNECT, RECONNECT, PAUSE
     """
     def __init__(self, context):
         super().__init__()
-        self.context = context  # 应提供方法: disconnect(), reconnect(), pause()
+        self.context = context  # Should provide methods: disconnect(), reconnect(), pause()
         self.host = config.RPC_HOST
         self.port = config.RPC_PORT
         self.running = True
@@ -21,7 +21,7 @@ class CommandServer(threading.Thread):
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server_socket.bind((self.host, self.port))
             self.server_socket.listen(1)
-            log_info(f"指令服务器正在监听 {self.host}:{self.port}")
+            log_info(f"Command Server listening on {self.host}:{self.port}")
 
             while self.running:
                 try:
@@ -30,17 +30,17 @@ class CommandServer(threading.Thread):
                     with client_socket:
                         data = client_socket.recv(1024).decode('utf-8').strip()
                         if data:
-                            log_info(f"RPC 收到指令: {data}")
+                            log_info(f"RPC Received command: {data}")
                             self.process_command(data)
                             client_socket.sendall(b"OK")
                 except socket.timeout:
                     continue
                 except Exception as e:
                     if self.running:
-                        log_error(f"RPC 服务器接收错误: {e}")
+                        log_error(f"RPC Server accept error: {e}")
 
         except Exception as e:
-            log_error(f"RPC 服务器启动错误: {e}")
+            log_error(f"RPC Server startup error: {e}")
         finally:
             self.stop()
 
@@ -53,7 +53,7 @@ class CommandServer(threading.Thread):
         elif cmd == "PAUSE":
             self.context.pause()
         else:
-            log_error(f"未知 RPC 指令: {cmd}")
+            log_error(f"Unknown RPC command: {cmd}")
 
     def stop(self):
         self.running = False
@@ -62,4 +62,4 @@ class CommandServer(threading.Thread):
                 self.server_socket.close()
             except:
                 pass
-        log_info("指令服务器已停止。")
+        log_info("Command Server stopped.")

@@ -7,31 +7,31 @@ from src.utils import is_trading_time, wait_for_reaction
 from src.tests import cases
 
 def run_all_tests():
-    # 1. 设置
+    # 1. Setup
     setup_logger()
     
-    # 2. 时间检查
+    # 2. Time Check
     if not is_trading_time():
         log_error("当前非交易时间，停止测试。")
         return
 
     engine = None
     try:
-        log_info("=== 开始执行 CTP 穿透测试套件 ===")
+        log_info("=== Starting CTP Penetration Test Suite ===")
         
-        # 3. 初始化引擎
+        # 3. Init Engine
         engine = TestEngine()
         
-        # 4. 连接
+        # 4. Connect
         cases.test_2_1_1_connectivity(engine)
         
-        # 5. 等待合约
+        # 5. Wait for Contract
         cases.prepare_contract(engine)
         if not engine.contract:
-            log_error("合约未就绪，中止测试。")
+            log_error("Contract not ready, aborting tests.")
             return
 
-        # 6. 订阅
+        # 6. Subscribe
         # Gateway usually auto-subscribes if we use vnpy's way, but let's be explicit if needed.
         # But wait, prepare_contract checks main_engine.get_all_contracts().
         # CTP gateway queries instruments on connect.
@@ -39,46 +39,46 @@ def run_all_tests():
         # In comprehensive_ctp_test.py: gateway.subscribe(...)
         from vnpy.trader.object import SubscribeRequest
         engine.subscribe(SubscribeRequest(symbol=engine.contract.symbol, exchange=engine.contract.exchange))
-        wait_for_reaction(msg="等待行情订阅")
+        wait_for_reaction(msg="Wait for Market Data Subscription")
 
-        # 7. 运行测试用例
+        # 7. Run Test Cases
         
-        # 2.1.2 基础交易
+        # 2.1.2 Basic Trading
         cases.test_2_1_2_basic_trading(engine)
         
-        # 2.2.3 重复报单 (在断开/暂停之前)
+        # 2.2.3 Repeat Order (before disconnect/pause)
         cases.test_2_2_3_repeat_order(engine)
         
-        # 2.4.1 订单检查
+        # 2.4.1 Order Check
         cases.test_2_4_1_order_check(engine)
         
-        # 2.4.2 错误提示
+        # 2.4.2 Error Prompt
         cases.test_2_4_2_error_prompt(engine)
         
-        # 2.2.1 断开连接 (这将关闭连接)
+        # 2.2.1 Disconnect (This will close connection)
         cases.test_2_2_1_disconnection(engine)
         
         # After disconnect test, we reconnected. Ensure contract/sub is still valid?
         # Reconnect calls connect(). CTP usually requires re-subscribing?
         # VnPy gateway usually handles re-subscription on re-connect automatically if using SubscribeRequest?
         # Or we might need to wait again.
-        wait_for_reaction(msg="等待重连稳定")
+        wait_for_reaction(msg="Stabilizing after reconnect")
         
-        # 2.5.2 批量撤单 (Requires active session)
+        # 2.5.2 Batch Cancel (Requires active session)
         cases.test_2_5_2_batch_cancel(engine)
         
-        # 2.5.1 暂停交易 (This disables risk manager)
+        # 2.5.1 Pause Trading (This disables risk manager)
         # Run this last as it stops trading.
         cases.test_2_5_1_pause_trading(engine)
         
-        log_info("=== 所有测试执行完毕 ===")
+        log_info("=== All Tests Completed ===")
 
     except Exception as e:
-        log_error(f"测试套件崩溃: {e}")
+        log_error(f"Test Suite Crashed: {e}")
         log_error(traceback.format_exc())
     finally:
         if engine:
-            log_info("正在关闭引擎...")
+            log_info("Closing Engine...")
             engine.close()
 
 if __name__ == "__main__":

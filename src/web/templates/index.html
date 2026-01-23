@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <title>CTP 穿透测试控制台</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <style>
+        /* 日志区域样式优化 */
+        #log-container {
+            height: 85vh;
+            overflow-y: auto;
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            padding: 10px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            border-radius: 5px;
+        }
+        .log-line { margin: 2px 0; border-bottom: 1px dashed #2b2b2b; }
+        .sidebar { height: 100vh; border-right: 1px solid #333; padding: 20px; overflow-y: auto; }
+        .btn-group-custom { margin-bottom: 15px; width: 100%; }
+        .btn-group-custom .btn { width: 100%; text-align: left; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- 左侧控制栏 -->
+            <div class="col-md-3 sidebar bg-dark">
+                <h4 class="mb-4 text-primary">🛡️ CTP 测试控制台</h4>
+                
+                <!-- 环境信息 -->
+                <div class="card mb-4 bg-secondary bg-opacity-10">
+                    <div class="card-body py-2">
+                        <small class="text-muted">当前环境</small>
+                        <div class="fw-bold text-info">{{ env.BROKER }} / {{ env.USER }}</div>
+                        <div class="text-truncate" style="font-size: 12px;">{{ env.SERVER }}</div>
+                    </div>
+                </div>
+
+                <!-- 测试控制按钮 -->
+                <div class="accordion" id="testAccordion">
+                    <!-- 2.1 基础 -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#c21">2.1 接口适应性</button></h2>
+                        <div id="c21" class="accordion-collapse collapse show" data-bs-parent="#testAccordion">
+                            <div class="accordion-body p-2">
+                                <button onclick="runTest('2.1.1')" class="btn btn-outline-light btn-sm w-100 mb-2">2.1.1 连通性测试</button>
+                                <button onclick="runTest('2.1.2')" class="btn btn-outline-light btn-sm w-100">2.1.2 基础交易(开/平/撤)</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2.2 异常 -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c22">2.2 异常监测</button></h2>
+                        <div id="c22" class="accordion-collapse collapse" data-bs-parent="#testAccordion">
+                            <div class="accordion-body p-2">
+                                <button onclick="runTest('2.2.1')" class="btn btn-outline-warning btn-sm w-100 mb-2">2.2.1 连接状态监测</button>
+                                <button onclick="runTest('2.2.2')" class="btn btn-outline-warning btn-sm w-100 mb-2">2.2.2 报撤单笔数监测</button>
+                                <button onclick="runTest('2.2.3')" class="btn btn-outline-warning btn-sm w-100">2.2.3 重复报单监测</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 2.3 阈值 -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c23">2.3 阈值管理</button></h2>
+                        <div id="c23" class="accordion-collapse collapse" data-bs-parent="#testAccordion">
+                            <div class="accordion-body p-2">
+                                <button onclick="runTest('2.3.1')" class="btn btn-outline-info btn-sm w-100 mb-2">2.3.1 阈值设置及预警</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 2.4 错误 -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c24">2.4 错误防范</button></h2>
+                        <div id="c24" class="accordion-collapse collapse" data-bs-parent="#testAccordion">
+                            <div class="accordion-body p-2">
+                                <button onclick="runTest('2.4.1')" class="btn btn-outline-danger btn-sm w-100 mb-2">2.4.1 交易指令检查</button>
+                                <button onclick="runTest('2.4.2')" class="btn btn-outline-danger btn-sm w-100">2.4.2 错误提示功能</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 2.5 应急 -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c25">2.5 应急处理</button></h2>
+                        <div id="c25" class="accordion-collapse collapse" data-bs-parent="#testAccordion">
+                            <div class="accordion-body p-2">
+                                <button onclick="runTest('2.5.1')" class="btn btn-danger btn-sm w-100 mb-2">2.5.1 暂停交易</button>
+                                <button onclick="runTest('2.5.2')" class="btn btn-outline-danger btn-sm w-100 mb-2">2.5.2 批量撤单</button>
+                                <hr>
+                                <button onclick="resetSystem()" class="btn btn-success btn-sm w-100">♻️ 重置/恢复交易权限</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 2.6 日志 -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c26">2.6 日志记录</button></h2>
+                        <div id="c26" class="accordion-collapse collapse" data-bs-parent="#testAccordion">
+                            <div class="accordion-body p-2">
+                                <button onclick="runTest('2.6.1')" class="btn btn-outline-secondary btn-sm w-100">2.6.1 日志记录功能</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧日志区 -->
+            <div class="col-md-9 p-0">
+                <div id="log-container">
+                    <div class="text-muted p-2">等待连接 SocketIO...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const logContainer = document.getElementById('log-container');
+
+        // 日志接收逻辑
+        socket.on('new_log', function(data) {
+            const div = document.createElement('div');
+            div.className = 'log-line';
+            div.style.color = data.color;
+            div.textContent = data.message;
+            
+            logContainer.appendChild(div);
+            
+            // 自动滚动
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            // 性能优化：限制最大行数 1000
+            if (logContainer.children.length > 1000) {
+                logContainer.removeChild(logContainer.firstChild);
+            }
+        });
+
+        socket.on('connect', () => {
+            logContainer.innerHTML = '<div class="text-success p-2">✅ 服务器已连接</div>';
+        });
+
+        // API 调用逻辑
+        function runTest(caseId) {
+            fetch(`/api/run/${caseId}`, { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if(data.status !== 'success') alert(data.msg);
+                });
+        }
+
+        function resetSystem() {
+            fetch('/api/control/reset', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => alert(data.msg));
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

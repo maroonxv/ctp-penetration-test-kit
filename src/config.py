@@ -24,19 +24,24 @@ ENV_VARS = load_env(ENV_PATH)
 
 # 全局常量
 CTP_NAME = ENV_VARS.get("CTP_NAME", "Unknown")
+CTP_USERNAME = ENV_VARS.get("CTP_USERNAME", "")
+CTP_BROKER_ID = ENV_VARS.get("CTP_BROKER_ID", "")
+CTP_TD_SERVER = ENV_VARS.get("CTP_TD_SERVER", "")
+CTP_APP_ID = ENV_VARS.get("APPID", "")
+CTP_AUTH_CODE = ENV_VARS.get("CTP_AUTH_CODE", "")
 ATOMIC_WAIT_SECONDS = 7
 RPC_PORT = 9999
 RPC_HOST = "127.0.0.1"
 
 # CTP 配置
 CTP_SETTING = {
-    "用户名": ENV_VARS.get("CTP_USERNAME", ""),
+    "用户名": CTP_USERNAME,
     "密码": ENV_VARS.get("CTP_PASSWORD", ""),
-    "经纪商代码": ENV_VARS.get("CTP_BROKER_ID", ""),
-    "交易服务器": ENV_VARS.get("CTP_TD_SERVER", ""),
+    "经纪商代码": CTP_BROKER_ID,
+    "交易服务器": CTP_TD_SERVER,
     "行情服务器": ENV_VARS.get("CTP_MD_SERVER", ""),
-    "产品名称": ENV_VARS.get("APPID", ""),
-    "授权编码": ENV_VARS.get("CTP_AUTH_CODE", "")
+    "产品名称": CTP_APP_ID,
+    "授权编码": CTP_AUTH_CODE
 }
 
 # 测试配置
