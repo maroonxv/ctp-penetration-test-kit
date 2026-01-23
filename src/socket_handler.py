@@ -13,6 +13,10 @@ class SocketIOHandler(logging.Handler):
         try:
             msg = self.format(record)
             
+            # 过滤 Werkzeug/Flask 访问日志
+            if "GET /" in msg or "POST /" in msg or "HTTP/1.1" in msg or "socket.io" in msg:
+                return
+            
             # 颜色逻辑判断
             color = "#cccccc" # Default Grey
             if record.levelno >= logging.ERROR:

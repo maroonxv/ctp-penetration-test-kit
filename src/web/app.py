@@ -27,7 +27,97 @@ root_logger = logging.getLogger()
 if not any(isinstance(h, SocketIOHandler) for h in root_logger.handlers):
     socket_handler = SocketIOHandler(socketio)
     socket_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+    
+    # 挂载到 Root Logger (捕获 src.*)
     root_logger.addHandler(socket_handler)
+    
+    # 显式挂载到 vnpy 相关的 Logger (捕获底层日志)
+    # vnpy 可能使用 'vnpy', 'vnpy.trader', 'vnpy.gateway' 等
+    # 我们遍历所有已存在的 logger 并尝试挂载
+    for name in logging.root.manager.loggerDict:
+        if name.startswith("vnpy"):
+            l = logging.getLogger(name)
+            l.addHandler(socket_handler)
+            l.setLevel(logging.INFO)
+            
+    # 额外确保 "vnpy" 和 "vnpy.trader" 被挂载（即使它们还没创建，现在创建并挂载）
+    logging.getLogger("vnpy").addHandler(socket_handler)
+    logging.getLogger("vnpy.trader").addHandler(socket_handler)
+    
+    # --- 方案: Loguru 拦截 (针对 vnpy 的 loguru 日志) ---
+    try:
+        from loguru import logger as loguru_logger
+        
+        def loguru_sink(message):
+            try:
+                # Loguru message is a string-like object
+                msg_str = str(message).strip()
+                if not msg_str: return
+                
+                # 过滤 Werkzeug/Flask 访问日志
+                if "GET /" in msg_str or "POST /" in msg_str or "HTTP/1.1" in msg_str or "socket.io" in msg_str:
+                    return
+                
+                color = "#cccccc"
+                if "ERROR" in msg_str or "Error" in msg_str:
+                    color = "#ff4d4d"
+                elif "WARNING" in msg_str or "Warning" in msg_str:
+                    color = "#ffbf00"
+                elif "INFO" in msg_str:
+                    color = "#00ccff"
+                    
+                socketio.emit('new_log', {'message': msg_str, 'color': color})
+            except:
+                pass
+                
+        # 添加 sink
+        loguru_logger.add(loguru_sink, format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level} | {name} | {message}")
+    except ImportError:
+        pass
+    
+    # --- 方案 A: 劫持 Stdout/Stderr (最强兜底) ---
+    class StreamToSocket:
+        def __init__(self, original_stream):
+            self.original_stream = original_stream
+            
+        def write(self, message):
+            # 保留原始输出
+            self.original_stream.write(message)
+            self.original_stream.flush()
+            
+            # 过滤空行
+            if not message.strip():
+                return
+                
+            # 过滤 Werkzeug/Flask 访问日志
+            msg_str = message.strip()
+            if "GET /" in msg_str or "POST /" in msg_str or "HTTP/1.1" in msg_str or "socket.io" in msg_str:
+                return
+                
+            # 推送到前端
+            try:
+                # 简单区分颜色：如果包含 Error/失败 -> 红，其他 -> 默认
+                color = "#cccccc"
+                if "Error" in message or "失败" in message or "Exception" in message:
+                    color = "#ff4d4d"
+                elif "Warning" in message or "警告" in message:
+                    color = "#ffbf00"
+                elif "INFO" in message and "|" in message: # 识别 loguru/vnpy 格式
+                    color = "#00ccff"
+                    
+                socketio.emit('new_log', {'message': message.strip(), 'color': color})
+            except:
+                pass
+                
+        def flush(self):
+            self.original_stream.flush()
+            
+    # 启用劫持
+    sys.stdout = StreamToSocket(sys.stdout)
+    sys.stderr = StreamToSocket(sys.stderr) # 同时也劫持 stderr，因为 loguru 默认输出到 stderr
+    
+    # 防止 vnpy 日志双重打印 (如果它已经有 StreamHandler)
+    # 但我们需要确保它至少有一个 Handler 才能工作，这里只加我们的
 
 # --- 辅助函数：脱敏 ---
 def get_masked_env():
