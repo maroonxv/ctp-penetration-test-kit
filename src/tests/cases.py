@@ -113,27 +113,33 @@ def test_2_2_1_connection_monitor(engine: TestEngine):
     2.2.1 系统连接异常监测
     覆盖: 2.2.1.1 连接显示, 2.2.1.2 断线显示, 2.2.1.3 重连显示
     """
-    log_info("\n>>> [2.2.1] 连接监测测试")
+    log_info("\n>>> [2.2.1] 连接监测测试（软断线/软重连）")
     
     # 2.2.1.1 连接状态
     log_info("--- 测试点 2.2.1.1: 当前连接状态 ---")
     gateway = engine.main_engine.get_gateway(engine.gateway_name)
     if gateway:
-        log_info("当前网关状态: 已连接")
+        log_info("当前网关对象: 存在（真实连接状态以底层回调/日志为准）")
     else:
-        log_error("当前网关未连接")
+        log_error("当前网关对象: 不存在（可能未完成初始化或已被逻辑断开）")
 
     # 2.2.1.2 断线模拟
-    log_info("--- 测试点 2.2.1.2: 模拟断线 ---")
+    log_info("--- 测试点 2.2.1.2: 模拟断线（逻辑断线） ---")
     engine.disconnect()
-    
-    # 由测试脚本控制等待，确保主引擎不卡死
-    log_info("已调用 disconnect，主线程开始等待 5 秒...")
+
+    log_info("已调用 disconnect（本工具采用逻辑断线：不物理 close，避免底层卡死）。")
+    gateway = engine.main_engine.get_gateway(engine.gateway_name)
+    if gateway:
+        log_warning("断线后网关对象仍存在（与预期不符），后续以回调/日志为准。")
+    else:
+        log_info("断线后网关对象已移除（符合逻辑断线预期）。")
+
+    log_info("等待 5 秒，观察断线/重连相关日志...")
     time.sleep(5)
-    log_info("等待结束，准备发起重连...")
+    log_info("等待结束，准备发起重连（软重连）...")
 
     # 2.2.1.3 重连模拟
-    log_info("--- 测试点 2.2.1.3: 模拟重连 ---")
+    log_info("--- 测试点 2.2.1.3: 模拟重连（逻辑重连） ---")
     
     # 强制重新连接
     try:
@@ -147,9 +153,9 @@ def test_2_2_1_connection_monitor(engine: TestEngine):
     # 重连后 gateway 对象可能发生变化（如果被重新创建），重新获取
     gateway = engine.main_engine.get_gateway(engine.gateway_name)
     if gateway:
-        log_info("重连成功，网关状态: 已连接")
+        log_info("重连后网关对象: 存在（真实连接状态以底层回调/日志为准）")
     else:
-        log_error("重连失败，网关未就绪")
+        log_error("重连后网关对象: 不存在（重连未就绪）")
     
     # 重连后再次检查资金
     if gateway:

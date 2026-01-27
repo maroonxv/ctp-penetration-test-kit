@@ -101,6 +101,8 @@ class RpcClient:
 process_manager = ProcessManager()
 rpc = RpcClient("127.0.0.1", 9999)
 
+log = logging.getLogger(__name__)
+
 root_logger = logging.getLogger()
 if not any(isinstance(h, SocketIOHandler) for h in root_logger.handlers):
     socket_handler = SocketIOHandler(socketio)
@@ -141,9 +143,79 @@ def get_masked_env():
 def index():
     return render_template('index.html', env=get_masked_env())
 
+def _now_text() -> str:
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+
+def _wait_ping_ok(timeout_s: float) -> bool:
+    deadline = time.time() + max(0.1, float(timeout_s))
+    while time.time() < deadline:
+        try:
+            resp = rpc.request("PING", {}, timeout=1.0)
+            if resp.get("ok"):
+                return True
+        except Exception:
+            pass
+        time.sleep(0.2)
+    return False
+
+def _hard_disconnect_orchestrate(case_id: str) -> tuple[bool, dict]:
+    disconnect_window_s = float(os.environ.get("HARD_DISCONNECT_WINDOW_S", "10"))
+    restart_ping_timeout_s = float(os.environ.get("HARD_DISCONNECT_RESTART_PING_TIMEOUT_S", "60"))
+    ping_timeout_s = float(os.environ.get("HARD_DISCONNECT_PING_TIMEOUT_S", "10"))
+
+    process_manager.start_worker()
+
+    status_resp = None
+    try:
+        status_resp = rpc.request("GET_STATUS", {}, timeout=2.0)
+    except Exception:
+        status_resp = None
+
+    if status_resp and status_resp.get("ok"):
+        data = status_resp.get("data") or {}
+        if data.get("busy"):
+            return False, {"reason": "busy", "status": data}
+
+    if not _wait_ping_ok(timeout_s=ping_timeout_s):
+        return False, {"reason": "ping_timeout_before_kill"}
+
+    t1 = time.time()
+    log.info(f"【{case_id}】2.2.1.1：连接成功（在线） {_now_text()}")
+
+    log.info(f"【{case_id}】2.2.1.2：连接断开 {_now_text()}")
+    process_manager.kill_worker()
+    t2 = time.time()
+
+    time.sleep(max(0.0, disconnect_window_s))
+
+    process_manager.start_worker()
+    t3_start = time.time()
+
+    if not _wait_ping_ok(timeout_s=restart_ping_timeout_s):
+        return False, {"reason": "ping_timeout_after_restart", "t1": t1, "t2": t2, "t3_start": t3_start}
+
+    t3 = time.time()
+    log.info(f"【{case_id}】2.2.1.3：重连成功 {_now_text()}")
+
+    return True, {
+        "t1": t1,
+        "t2": t2,
+        "t3": t3,
+        "disconnect_window_s": disconnect_window_s,
+    }
+
 @app.route('/api/run/<case_id>', methods=['POST'])
 def run_case(case_id):
     process_manager.start_worker()
+    case_id = (case_id or "").strip()
+    if case_id == "2.2.1":
+        ok, data = _hard_disconnect_orchestrate(case_id)
+        if not ok and data.get("reason") == "busy":
+            return jsonify({"status": "busy", "msg": "当前有测试正在运行，请等待结束", "data": data}), 200
+        if not ok:
+            return jsonify({"status": "error", "msg": f"{case_id} 连接中断演练失败", "data": data}), 500
+        return jsonify({"status": "success", "msg": f"{case_id} 连接中断演练已完成", "data": data})
+
     resp = rpc.request("RUN_CASE", {"case_id": case_id}, timeout=3.0)
     if not resp.get("ok"):
         return jsonify({"status": "error", "msg": resp.get("error", "RPC 调用失败")}), 500

@@ -153,7 +153,12 @@ class TestEngine:
 
     def on_trade(self, event: Event):
         trade: TradeData = event.data
-        log_info(f"-> 收到成交回报: {trade.vt_tradeid} Price:{trade.price} Vol:{trade.volume}")
+        vt_orderid = getattr(trade, "vt_orderid", "") or ""
+        if not vt_orderid and getattr(trade, "orderid", None):
+            vt_orderid = f"{self.gateway_name}.{trade.orderid}"
+
+        if vt_orderid in self.session_order_ids:
+            log_info(f"-> 收到成交回报: {vt_orderid} {trade.vt_tradeid} Price:{trade.price} Vol:{trade.volume}")
 
     def on_contract(self, event: Event):
         contract: ContractData = event.data

@@ -182,6 +182,8 @@ class WorkerController:
         self.current_case_id = case_id
         self.last_error = None
         try:
+            if hasattr(self.engine, "session_order_ids") and self.engine.session_order_ids is not None:
+                self.engine.session_order_ids.clear()
             if self.sio and self.sio.connected:
                 self.sio.emit("case_started", {"case_id": case_id, "started_at": time.time()})
             log_info(f"=== 开始执行: {case_id} ===")
