@@ -158,7 +158,35 @@ class WorkerController:
             "gateway_exists": bool(gateway),
             "last_error": self.last_error,
             "last_case_finished_at": self.last_case_finished_at,
+            "risk": self.get_risk_snapshot(),
         }
+
+    def get_risk_snapshot(self) -> dict:
+        rm = getattr(self.engine, "risk_manager", None)
+        if not rm:
+            return {}
+        thresholds = {}
+        metrics = {}
+        try:
+            thresholds = rm.get_thresholds()
+        except Exception:
+            thresholds = {}
+        try:
+            metrics = rm.get_metrics()
+        except Exception:
+            metrics = {}
+        return {
+            "active": bool(getattr(rm, "active", True)),
+            "thresholds": thresholds,
+            "metrics": metrics,
+        }
+
+    def set_thresholds(self, max_order_count=None, max_cancel_count=None, max_repeat_count=None) -> dict:
+        rm = getattr(self.engine, "risk_manager", None)
+        if not rm:
+            raise RuntimeError("risk_manager_not_ready")
+        rm.set_thresholds(max_order=max_order_count, max_cancel=max_cancel_count, max_repeat=max_repeat_count)
+        return self.get_risk_snapshot()
 
     def reset_risk(self):
         if self.engine and self.engine.risk_manager:
@@ -233,6 +261,20 @@ class WorkerController:
                 return {"request_id": request_id, "ok": True, "data": {"pong": True}}
             if req_type == "GET_STATUS":
                 return {"request_id": request_id, "ok": True, "data": self.get_status()}
+            if req_type == "GET_THRESHOLDS":
+                return {"request_id": request_id, "ok": True, "data": (self.get_risk_snapshot().get("thresholds") or {})}
+            if req_type == "GET_RISK_SNAPSHOT":
+                return {"request_id": request_id, "ok": True, "data": self.get_risk_snapshot()}
+            if req_type == "SET_THRESHOLDS":
+                max_order_count = payload.get("max_order_count")
+                max_cancel_count = payload.get("max_cancel_count")
+                max_repeat_count = payload.get("max_repeat_count")
+                data = self.set_thresholds(
+                    max_order_count=max_order_count,
+                    max_cancel_count=max_cancel_count,
+                    max_repeat_count=max_repeat_count,
+                )
+                return {"request_id": request_id, "ok": True, "data": data}
             if req_type == "RESET_RISK":
                 self.reset_risk()
                 return {"request_id": request_id, "ok": True}

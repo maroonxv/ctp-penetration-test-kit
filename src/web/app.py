@@ -7,7 +7,7 @@ import uuid
 import time
 import subprocess
 
-# Ensure project root is in sys.path when running as script
+# 确保项目根目录在 sys.path 中（当作为脚本运行时）
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from flask import Flask, render_template, jsonify, request
@@ -15,6 +15,10 @@ from flask_socketio import SocketIO
 from src.socket_handler import SocketIOHandler
 from src import read_config as config
 from src.logger import setup_logger
+import engineio
+
+# Increase max_decode_packets to prevent "Too many packets in payload" error
+engineio.payload.Payload.max_decode_packets = 100
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'ctp_test_secret'
@@ -204,6 +208,74 @@ def _hard_disconnect_orchestrate(case_id: str) -> tuple[bool, dict]:
         "disconnect_window_s": disconnect_window_s,
     }
 
+def _run_2_5_1_orchestrate(case_id: str) -> tuple[bool, dict]:
+    """
+    编排 2.5.1 测试：
+    1. 调用 RPC 执行 2.5.1.1 和 2.5.1.2
+    2. 等待执行完成
+    3. 执行 2.5.1.3 (强制账号退出/Kill Worker)
+    """
+    # 1. 确保 Worker 启动
+    process_manager.start_worker()
+    if not _wait_ping_ok(10):
+         return False, {"reason": "ping_timeout_start"}
+
+    # 2. 调用 RPC 执行前两个子项
+    resp = rpc.request("RUN_CASE", {"case_id": case_id}, timeout=3.0)
+    if not resp.get("ok") or not resp.get("data", {}).get("accepted"):
+        return False, {"reason": "rpc_failed_or_busy", "resp": resp, "busy": True}
+
+    # 3. 等待 RPC 任务结束
+    log.info(f"【{case_id}】等待 2.5.1.1/2.5.1.2 执行完成...")
+    max_wait = 120 
+    start_wait = time.time()
+    rpc_finished = False
+    
+    while time.time() - start_wait < max_wait:
+        time.sleep(1)
+        status = None
+        try:
+            status = rpc.request("GET_STATUS", {}, timeout=2.0)
+        except:
+            pass
+            
+        if status and status.get("ok"):
+            data = status.get("data") or {}
+            # 当 busy 为 False 且 current_case_id 为 None 时认为结束
+            if not data.get("busy") and not data.get("current_case_id"):
+                rpc_finished = True
+                break
+    
+    if not rpc_finished:
+         return False, {"reason": "timeout_waiting_for_part1_2"}
+
+    # 4. 执行 2.5.1.3 强制退出
+    log.info(f"【{case_id}】2.5.1.3：强制账号退出（模拟断电/进程终止） {_now_text()}")
+    
+    t1 = time.time()
+    process_manager.kill_worker()
+    t2 = time.time()
+    log.info(f"【{case_id}】Worker 已终止")
+
+    disconnect_window_s = float(os.environ.get("HARD_DISCONNECT_WINDOW_S", "10"))
+    time.sleep(max(0.0, disconnect_window_s))
+
+    process_manager.start_worker()
+    
+    restart_ping_timeout_s = float(os.environ.get("HARD_DISCONNECT_RESTART_PING_TIMEOUT_S", "60"))
+    if not _wait_ping_ok(restart_ping_timeout_s):
+        return False, {"reason": "restart_failed_after_kill"}
+        
+    t3 = time.time()
+    log.info(f"【{case_id}】2.5.1.3：重连成功 {_now_text()}")
+
+    return True, {
+        "t1": t1,
+        "t2": t2,
+        "t3": t3,
+        "disconnect_window_s": disconnect_window_s
+    }
+
 @app.route('/api/run/<case_id>', methods=['POST'])
 def run_case(case_id):
     process_manager.start_worker()
@@ -215,6 +287,15 @@ def run_case(case_id):
         if not ok:
             return jsonify({"status": "error", "msg": f"{case_id} 连接中断演练失败", "data": data}), 500
         return jsonify({"status": "success", "msg": f"{case_id} 连接中断演练已完成", "data": data})
+
+    if case_id == "2.5.1":
+        ok, data = _run_2_5_1_orchestrate(case_id)
+        if not ok:
+            is_busy = data.get("busy") or (data.get("reason") == "rpc_failed_or_busy")
+            msg = "当前有测试正在运行，请等待结束" if is_busy else f"{case_id} 执行失败: {data.get('reason')}"
+            status_code = 200 if is_busy else 500
+            return jsonify({"status": "busy" if is_busy else "error", "msg": msg, "data": data}), status_code
+        return jsonify({"status": "success", "msg": f"{case_id} 测试已完成", "data": data})
 
     resp = rpc.request("RUN_CASE", {"case_id": case_id}, timeout=3.0)
     if not resp.get("ok"):
@@ -235,6 +316,42 @@ def reset_system():
     if not resp.get("ok"):
         return jsonify({"status": "error", "msg": resp.get("error", "RPC 调用失败")}), 500
     return jsonify({"status": "success", "msg": "系统状态已重置"})
+
+@app.route("/api/risk/thresholds", methods=["GET"])
+def get_risk_thresholds():
+    process_manager.start_worker()
+    resp = rpc.request("GET_THRESHOLDS", {}, timeout=2.0)
+    if not resp.get("ok"):
+        return jsonify({"status": "error", "msg": resp.get("error", "RPC 调用失败")}), 500
+    return jsonify({"status": "success", "data": resp.get("data") or {}})
+
+
+@app.route("/api/risk/thresholds", methods=["POST"])
+def set_risk_thresholds():
+    process_manager.start_worker()
+    body = request.get_json(silent=True) or {}
+
+    payload = {}
+    if "max_order_count" in body:
+        payload["max_order_count"] = body.get("max_order_count")
+    if "max_cancel_count" in body:
+        payload["max_cancel_count"] = body.get("max_cancel_count")
+    if "max_repeat_count" in body:
+        payload["max_repeat_count"] = body.get("max_repeat_count")
+
+    resp = rpc.request("SET_THRESHOLDS", payload, timeout=3.0)
+    if not resp.get("ok"):
+        return jsonify({"status": "error", "msg": resp.get("error", "RPC 调用失败")}), 500
+    return jsonify({"status": "success", "data": resp.get("data") or {}})
+
+
+@app.route("/api/risk/snapshot", methods=["GET"])
+def get_risk_snapshot():
+    process_manager.start_worker()
+    resp = rpc.request("GET_RISK_SNAPSHOT", {}, timeout=2.0)
+    if not resp.get("ok"):
+        return jsonify({"status": "error", "msg": resp.get("error", "RPC 调用失败")}), 500
+    return jsonify({"status": "success", "data": resp.get("data") or {}})
 
 
 @app.route("/api/worker/status", methods=["GET"])

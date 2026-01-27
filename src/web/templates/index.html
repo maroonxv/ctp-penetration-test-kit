@@ -25,6 +25,19 @@
                     </div>
                 </div>
 
+                <!-- 阈值设置已移动到弹窗 -->
+
+                <div class="card mb-4 mx-2">
+                    <div class="card-body py-3">
+                        <small class="text-secondary text-uppercase" style="letter-spacing: 1px;">实时统计</small>
+                        <div class="mt-2" style="font-size: 0.9em;">
+                            <div class="d-flex justify-content-between"><span>报单笔数</span><span id="metric-order">-</span></div>
+                            <div class="d-flex justify-content-between"><span>撤单笔数</span><span id="metric-cancel">-</span></div>
+                            <div class="d-flex justify-content-between"><span>重复报单(选测)</span><span id="metric-repeat">-</span></div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 测试控制按钮 -->
                 <div class="accordion" id="testAccordion">
                     <!-- 2.1 基础 -->
@@ -55,7 +68,7 @@
                         <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c23">2.3 阈值管理</button></h2>
                         <div id="c23" class="accordion-collapse collapse" data-bs-parent="#testAccordion">
                             <div class="accordion-body p-2">
-                                <button onclick="runTest('2.3.1')" class="btn btn-outline-light btn-sm w-100 mb-2">2.3.1 阈值设置及预警</button>
+                                <button onclick="openThresholdModal()" class="btn btn-outline-light btn-sm w-100 mb-2">2.3.1 阈值设置及预警</button>
                             </div>
                         </div>
                     </div>
@@ -107,9 +120,222 @@
         </div>
     </div>
 
+    <!-- Threshold Settings Modal -->
+    <div class="modal fade" id="thresholdModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">2.3.1 阈值设置及预警</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div style="font-size: 0.9em;">报单阈值</div>
+                                <div class="text-secondary" style="font-size: 0.85em;">当前: <span id="current-thr-order">-</span></div>
+                            </div>
+                            <input id="thr-order" type="number" min="1" step="1" class="form-control form-control-sm mt-1" placeholder="例如 5">
+                        </div>
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div style="font-size: 0.9em;">撤单阈值</div>
+                                <div class="text-secondary" style="font-size: 0.85em;">当前: <span id="current-thr-cancel">-</span></div>
+                            </div>
+                            <input id="thr-cancel" type="number" min="1" step="1" class="form-control form-control-sm mt-1" placeholder="例如 3">
+                        </div>
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div style="font-size: 0.9em;">重复报单阈值(选测)</div>
+                                <div class="text-secondary" style="font-size: 0.85em;">当前: <span id="current-thr-repeat">-</span></div>
+                            </div>
+                            <div class="form-check form-switch mt-1">
+                                <input class="form-check-input" type="checkbox" role="switch" id="thr-repeat-enabled" checked>
+                                <label class="form-check-label" for="thr-repeat-enabled" style="font-size: 0.85em;">启用重复报单预警</label>
+                            </div>
+                            <input id="thr-repeat" type="number" min="1" step="1" class="form-control form-control-sm mt-1" placeholder="例如 2">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveAndRunThresholdTest()">保存并运行测试</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
+        <div id="toast-container"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const socket = io();
         const logContainer = document.getElementById('log-container');
+        const toastContainer = document.getElementById('toast-container');
+
+        const thresholdInputs = {
+            order: document.getElementById('thr-order'),
+            cancel: document.getElementById('thr-cancel'),
+            repeat: document.getElementById('thr-repeat'),
+            repeatEnabled: document.getElementById('thr-repeat-enabled'),
+        };
+
+        const thresholdCurrent = {
+            order: document.getElementById('current-thr-order'),
+            cancel: document.getElementById('current-thr-cancel'),
+            repeat: document.getElementById('current-thr-repeat'),
+        };
+
+        const metrics = {
+            order: document.getElementById('metric-order'),
+            cancel: document.getElementById('metric-cancel'),
+            repeat: document.getElementById('metric-repeat'),
+        };
+
+        let thresholdModal;
+        document.addEventListener('DOMContentLoaded', function() {
+            const el = document.getElementById('thresholdModal');
+            if (el) {
+                thresholdModal = new bootstrap.Modal(el);
+            }
+        });
+
+        let lastToastKey = '';
+        let lastToastAt = 0;
+
+        function showToast(title, message, variant) {
+            const toastId = `toast-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            const headerClass = variant === 'danger' ? 'text-bg-danger' : (variant === 'warning' ? 'text-bg-warning' : 'text-bg-secondary');
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = `
+                <div id="${toastId}" class="toast align-items-center border-0 ${headerClass}" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body" style="white-space: pre-wrap;">
+                            <div class="fw-bold">${title}</div>
+                            <div>${message}</div>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+            const toastEl = wrapper.firstElementChild;
+            toastContainer.appendChild(toastEl);
+            const toast = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 6000 });
+            toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+            toast.show();
+        }
+
+        function safeInt(value) {
+            const n = Number.parseInt(String(value), 10);
+            if (!Number.isFinite(n) || n <= 0) return null;
+            return n;
+        }
+
+        function setFormFromThresholds(thr) {
+            if (!thr) return;
+            const o = safeInt(thr.max_order_count);
+            const c = safeInt(thr.max_cancel_count);
+            const r = safeInt(thr.max_repeat_count);
+            if (o) thresholdInputs.order.value = o;
+            if (c) thresholdInputs.cancel.value = c;
+            if (r) thresholdInputs.repeat.value = r;
+            thresholdInputs.repeatEnabled.checked = (Number(thr.max_repeat_count || 0) > 0);
+        }
+
+        function updateSnapshot(risk) {
+            const thresholds = (risk && risk.thresholds) ? risk.thresholds : null;
+            const metric = (risk && risk.metrics) ? risk.metrics : null;
+
+            if (thresholds) {
+                thresholdCurrent.order.textContent = thresholds.max_order_count ?? '-';
+                thresholdCurrent.cancel.textContent = thresholds.max_cancel_count ?? '-';
+                thresholdCurrent.repeat.textContent = thresholds.max_repeat_count ?? '-';
+            }
+            if (metric) {
+                metrics.order.textContent = metric.order_count ?? '-';
+                metrics.cancel.textContent = metric.cancel_count ?? '-';
+                metrics.repeat.textContent = metric.repeat_total ?? '-';
+            }
+        }
+
+        function loadThresholdsFromServer() {
+            return fetch('/api/risk/thresholds', { method: 'GET' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status !== 'success') throw new Error(data.msg || '读取阈值失败');
+                    const thr = data.data || {};
+                    setFormFromThresholds(thr);
+                    thresholdCurrent.order.textContent = thr.max_order_count ?? '-';
+                    thresholdCurrent.cancel.textContent = thr.max_cancel_count ?? '-';
+                    thresholdCurrent.repeat.textContent = thr.max_repeat_count ?? '-';
+                    return thr;
+                })
+                .catch(err => {
+                    showToast('读取阈值失败', String(err), 'danger');
+                });
+        }
+
+        function loadSnapshot() {
+            return fetch('/api/risk/snapshot', { method: 'GET' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status !== 'success') throw new Error(data.msg || '读取统计失败');
+                    updateSnapshot(data.data || {});
+                })
+                .catch(() => {});
+        }
+
+        function applyThresholds() {
+            const maxOrder = safeInt(thresholdInputs.order.value);
+            const maxCancel = safeInt(thresholdInputs.cancel.value);
+            const repeatEnabled = Boolean(thresholdInputs.repeatEnabled.checked);
+            const maxRepeat = repeatEnabled ? safeInt(thresholdInputs.repeat.value) : 0;
+
+            if (!maxOrder || !maxCancel || (repeatEnabled && !maxRepeat)) {
+                showToast('参数错误', '请填写有效的阈值(正整数)', 'danger');
+                return Promise.resolve(false);
+            }
+
+            const payload = { max_order_count: maxOrder, max_cancel_count: maxCancel, max_repeat_count: maxRepeat };
+            localStorage.setItem('risk_thresholds', JSON.stringify(payload));
+
+            return fetch('/api/risk/thresholds', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status !== 'success') throw new Error(data.msg || '阈值设置失败');
+                    const risk = data.data || {};
+                    updateSnapshot(risk);
+                    showToast('阈值已更新', `报单=${maxOrder}, 撤单=${maxCancel}, 重复报单=${maxRepeat}`, 'warning');
+                    return true;
+                })
+                .catch(err => {
+                    showToast('阈值设置失败', String(err), 'danger');
+                    return false;
+                });
+        }
+
+        function openThresholdModal() {
+            if (thresholdModal) {
+                loadThresholdsFromServer().then(() => {
+                    thresholdModal.show();
+                });
+            }
+        }
+
+        function saveAndRunThresholdTest() {
+            applyThresholds().then((success) => {
+                if (success) {
+                    if (thresholdModal) thresholdModal.hide();
+                    runTest('2.3.1');
+                }
+            });
+        }
 
         // 日志接收逻辑
         socket.on('new_log', function(data) {
@@ -132,10 +358,38 @@
             if (logContainer.children.length > 1000) {
                 logContainer.removeChild(logContainer.firstChild);
             }
+
+            const msg = String(data.message || '');
+            const isAlert = msg.includes('【阈值预警】') || msg.includes('【风控预警】');
+            if (isAlert) {
+                const now = Date.now();
+                const key = msg.slice(0, 200);
+                if (!(key === lastToastKey && (now - lastToastAt) < 3000)) {
+                    lastToastKey = key;
+                    lastToastAt = now;
+                    const variant = msg.includes('【风控拦截】') ? 'danger' : 'warning';
+                    showToast('预警', msg, variant);
+                }
+            }
         });
 
         socket.on('connect', () => {
             logContainer.innerHTML = '<div class="text-success p-2">✅ 服务器已连接</div>';
+            loadThresholdsFromServer();
+            loadSnapshot();
+
+            try {
+                const stored = JSON.parse(localStorage.getItem('risk_thresholds') || 'null');
+                if (stored && typeof stored === 'object') {
+                    setFormFromThresholds(stored);
+                }
+            } catch (e) {}
+        });
+
+        socket.on('worker_status', (data) => {
+            if (data && data.risk) {
+                updateSnapshot(data.risk);
+            }
         });
 
         // API 调用逻辑
@@ -153,6 +407,5 @@
                 .then(data => alert(data.msg));
         }
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

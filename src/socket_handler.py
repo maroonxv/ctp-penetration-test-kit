@@ -18,17 +18,17 @@ class SocketIOHandler(logging.Handler):
                 return
             
             # 颜色逻辑判断
-            color = "#cccccc" # Default Grey
+            color = "#cccccc" # 默认灰色
             if record.levelno >= logging.ERROR:
-                color = "#ff4d4d" # Red
+                color = "#ff4d4d" # 红色
             elif record.levelno >= logging.WARNING:
-                color = "#ffbf00" # Orange
+                color = "#ffbf00" # 橙色
             elif "OnRtn" in msg or "OnRsp" in msg or "收到" in msg or "回调" in msg:
-                color = "#00ccff" # Blue (CTP Callback)
+                color = "#00ccff" # 蓝色（CTP 回调）
             elif "【" in msg:
-                color = "#00ff00" # Green (Key Info)
+                color = "#00ff00" # 绿色（关键信息）
             elif "Success" in msg or "成功" in msg:
-                color = "#00ff00" # Green
+                color = "#00ff00" # 绿色
                 
             # 推送事件
             self.socketio.emit('new_log', {'message': msg, 'color': color})

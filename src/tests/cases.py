@@ -273,39 +273,88 @@ def test_2_3_1_threshold_alert(engine: TestEngine):
     """
     log_info("\n>>> [2.3.1] 阈值预警测试")
     
-    # 1. 设置低阈值
-    engine.risk_manager.set_thresholds(max_order=5, max_cancel=3, max_symbol_order=2)
-    engine.risk_manager.reset_counters()
-    
-    # 2. 触发报单预警 (2.3.1.1, 2.3.1.2)
-    log_info("--- 触发报单总数预警 (阈值=5) ---")
-    for i in range(6):
-        req = OrderRequest(
-            symbol=engine.contract.symbol,
-            exchange=engine.contract.exchange,
-            direction=Direction.LONG,
-            type=OrderType.LIMIT,
-            volume=1,
-            price=config.SAFE_BUY_PRICE,
-            offset=Offset.OPEN
-        )
-        engine.send_order(req)
-    wait_for_reaction(2, "检查是否出现黄色报单预警")
+    rm = engine.risk_manager
+    thresholds = {}
+    try:
+        thresholds = rm.get_thresholds()
+    except Exception:
+        thresholds = {}
 
-    # 3. 触发撤单预警 (2.3.1.3, 2.3.1.4)
-    # 先清理订单
-    active = engine.get_all_active_orders()
-    log_info(f"--- 触发撤单总数预警 (阈值=3, 当前待撤={len(active)}) ---")
-    count = 0
-    for o in active:
-        engine.cancel_order(o.create_cancel_request())
-        count += 1
-        if count >= 4: break # 超过3次
-    wait_for_reaction(2, "检查是否出现黄色撤单预警")
+    max_order_count = int(thresholds.get("max_order_count", getattr(rm, "max_order_count", 0)) or 0)
+    max_cancel_count = int(thresholds.get("max_cancel_count", getattr(rm, "max_cancel_count", 0)) or 0)
+    max_repeat_count = int(thresholds.get("max_repeat_count", getattr(rm, "max_repeat_count", 0)) or 0)
 
-    # 恢复默认
-    engine.risk_manager.set_thresholds(max_order=100, max_cancel=100, max_symbol_order=100)
-    log_info("测试结束，已恢复默认阈值")
+    log_info(f"当前阈值: 报单={max_order_count}, 撤单={max_cancel_count}, 重复报单(选测)={max_repeat_count}")
+    rm.reset_counters()
+
+    if not engine.contract:
+        log_error("未获取到合约信息，跳过阈值触发测试")
+        return
+
+    max_actions = 10
+    sent_vt_orderids = []
+
+    # 2.3.1.1 / 2.3.1.2
+    if max_order_count > 0:
+        send_n = min(max_actions, max_order_count + 1)
+        log_info(f"--- 触发报单总数预警 (阈值={max_order_count}, 本次发单={send_n}) ---")
+        for _ in range(send_n):
+            req = OrderRequest(
+                symbol=engine.contract.symbol,
+                exchange=engine.contract.exchange,
+                direction=Direction.LONG,
+                type=OrderType.LIMIT,
+                volume=1,
+                price=config.SAFE_BUY_PRICE,
+                offset=Offset.OPEN,
+            )
+            vt_id = engine.send_order(req)
+            if vt_id:
+                sent_vt_orderids.append(vt_id)
+        wait_for_reaction(2, "检查是否出现报单阈值预警")
+    else:
+        log_warning("报单阈值未启用(<=0)，跳过 2.3.1.1/2.3.1.2")
+
+    wait_for_reaction(10, "测试间隔等待 10 秒")
+
+    # 2.3.1.3 / 2.3.1.4
+    if max_cancel_count > 0:
+        all_active = engine.get_all_active_orders()
+        target_orders = [o for o in all_active if o.vt_orderid in sent_vt_orderids]
+        
+        need_cancel = min(max_actions, max_cancel_count + 1)
+        log_info(f"--- 触发撤单总数预警 (阈值={max_cancel_count}, 计划撤单={need_cancel}, 目标待撤={len(target_orders)}) ---")
+        count = 0
+        for o in target_orders:
+            engine.cancel_order(o.create_cancel_request())
+            count += 1
+            if count >= need_cancel:
+                break
+        wait_for_reaction(2, "检查是否出现撤单阈值预警")
+    else:
+        log_warning("撤单阈值未启用(<=0)，跳过 2.3.1.3/2.3.1.4")
+
+    wait_for_reaction(10, "测试间隔等待 10 秒")
+
+    # 2.3.1.5 / 2.3.1.6（选测）
+    if max_repeat_count > 0:
+        repeat_send_n = min(max_actions, max_repeat_count + 1)
+        log_info(f"--- 触发重复报单预警(选测) (阈值={max_repeat_count}, 本次重复发单={repeat_send_n}) ---")
+        for _ in range(repeat_send_n):
+            req = OrderRequest(
+                symbol=engine.contract.symbol,
+                exchange=engine.contract.exchange,
+                direction=Direction.LONG,
+                type=OrderType.LIMIT,
+                volume=1,
+                price=config.SAFE_BUY_PRICE,
+                offset=Offset.OPEN,
+                reference="RepeatThresholdTest",
+            )
+            engine.send_order(req)
+        wait_for_reaction(2, "检查是否出现重复报单阈值预警")
+    else:
+        log_info("重复报单预警未启用(<=0)，跳过 2.3.1.5/2.3.1.6")
 
 # =============================================================================
 # 2.4 错误防范
@@ -330,7 +379,8 @@ def test_2_4_1_order_check(engine: TestEngine):
         offset=Offset.OPEN
     )
     engine.send_order(req_err_sym)
-    
+    wait_for_reaction(5, "等待 5 秒，查看是否出现错误日志")
+
     # 2. 价格错误
     log_info("--- 测试点 2.4.1.2: 最小变动价位错误 ---")
     if engine.contract:
@@ -344,6 +394,7 @@ def test_2_4_1_order_check(engine: TestEngine):
             offset=Offset.OPEN
         )
         engine.send_order(req_err_tick)
+        wait_for_reaction(5, "等待 5 秒，查看是否出现错误日志")
 
     # 3. 数量超限
     log_info("--- 测试点 2.4.1.3: 委托数量超限 ---")
@@ -353,7 +404,7 @@ def test_2_4_1_order_check(engine: TestEngine):
             exchange=engine.contract.exchange,
             direction=Direction.LONG,
             type=OrderType.LIMIT,
-            volume=1000000,
+            volume=10000,
             price=config.SAFE_BUY_PRICE,
             offset=Offset.OPEN
         )
@@ -380,12 +431,14 @@ def test_2_4_2_error_prompt(engine: TestEngine):
         type=OrderType.LIMIT,
         volume=50000, # 足够大
         price=config.SAFE_BUY_PRICE,
-        offset=Offset.OPEN
+        offset=Offset.OPEN,
+        reference="FundTest"
     )
     # 强制发送，绕过 risk manager (如果 risk manager 拦截的话)
     # 但我们现在的 send_order 必过 risk manager。
     # 只要 2.4.1.3 没拦截 50000，就能发出去。
     engine.send_order(req_fund)
+    wait_for_reaction(5, "等待 5 秒，查看是否出现错误日志")
     
     # 2. 持仓不足
     log_info("--- 测试点 2.4.2.2: 持仓不足回报 ---")
@@ -402,6 +455,22 @@ def test_2_4_2_error_prompt(engine: TestEngine):
     engine.send_order(req_pos)
     
     wait_for_reaction(3, "等待 CTP 错误回报")
+    wait_for_reaction(5, "等待 5 秒，查看是否出现错误日志")
+
+    # 3. 市场状态错误 (2.4.2.3)
+    log_info("--- 测试点 2.4.2.3: 市场状态错误回报 ---")
+    req_market = OrderRequest(
+        symbol=engine.contract.symbol,
+        exchange=engine.contract.exchange,
+        direction=Direction.LONG,
+        type=OrderType.LIMIT,
+        volume=1,
+        price=config.SAFE_BUY_PRICE,
+        offset=Offset.OPEN,
+        reference="MarketErrTest"
+    )
+    engine.send_order(req_market)
+    wait_for_reaction(5, "等待可能出现的市场状态错误回报")
 
 # =============================================================================
 # 2.5 应急处理
@@ -410,38 +479,67 @@ def test_2_4_2_error_prompt(engine: TestEngine):
 def test_2_5_1_pause_trading(engine: TestEngine):
     """
     2.5.1 暂停交易功能
-    覆盖: 2.5.1.1 限制权限
+    覆盖: 
+    2.5.1.1 限制账号交易权限
+    2.5.1.2 暂停策略执行
+    2.5.1.3 强制账号退出
     """
     log_info("\n>>> [2.5.1] 暂停交易测试")
+    if not engine.contract:
+        log_error("未获取到合约，跳过测试")
+        return
+
+    req = OrderRequest(
+        symbol=engine.contract.symbol,
+        exchange=engine.contract.exchange,
+        direction=Direction.LONG,
+        type=OrderType.LIMIT,
+        volume=1,
+        price=config.SAFE_BUY_PRICE,
+        offset=Offset.OPEN
+    )
+
+    # ==========================================
+    # 2.5.1.1 限制账号交易权限
+    # ==========================================
+    log_info("--- 测试点 2.5.1.1: 限制账号交易权限 ---")
+    # 模拟权限限制 (通过 RiskManager active=False 模拟本地权限锁)
+    engine.risk_manager.active = False
+    log_info("已限制交易权限 (Active=False)")
     
-    # 触发暂停
-    engine.risk_manager.emergency_stop()
+    engine.send_order(req)
+    wait_for_reaction(1, "验证权限限制下被拦截")
     
-    # 尝试发单
-    log_info("--- 尝试在暂停状态下发单 ---")
-    if engine.contract:
-        req = OrderRequest(
-            symbol=engine.contract.symbol,
-            exchange=engine.contract.exchange,
-            direction=Direction.LONG,
-            type=OrderType.LIMIT,
-            volume=1,
-            price=config.SAFE_BUY_PRICE,
-            offset=Offset.OPEN
-        )
-        engine.send_order(req)
-    
-    wait_for_reaction(1, "验证被拦截")
-    
-    # 恢复交易权限（如果测试流程需要继续）并查询资金
-    # 这里演示恢复后确认资金状态
-    log_info("--- 恢复交易权限并确认状态 ---")
+    # 恢复
     engine.risk_manager.active = True
-    gateway = engine.main_engine.get_gateway(engine.gateway_name)
-    if gateway:
-        gateway.query_account()
-        wait_for_reaction(2)
-        engine.log_current_account()
+    log_info("已恢复交易权限")
+    wait_for_reaction(2)
+
+    # ==========================================
+    # 2.5.1.2 暂停策略执行
+    # ==========================================
+    log_info("--- 测试点 2.5.1.2: 暂停策略执行 ---")
+    import datetime
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    
+    # 执行暂停
+    engine.pause() # 调用 emergency_stop
+    
+    engine.send_order(req)
+    wait_for_reaction(1, "验证暂停策略下被拦截")
+    
+    # 恢复
+    engine.risk_manager.active = True
+    log_info("已恢复策略执行")
+    wait_for_reaction(2)
+
+    # ==========================================
+    # 2.5.1.3 强制账号退出
+    # ==========================================
+    log_info("--- 测试点 2.5.1.3: 强制账号退出 ---")
+    log_info("说明: 该测试点将由外部编排器执行（模拟物理断线/进程终止）。")
+    log_info("当前 Python 用例结束，等待 Web 控制端执行后续步骤...")
 
 def test_2_5_2_batch_cancel(engine: TestEngine):
     """

@@ -6,12 +6,12 @@ from src.logger import log_info, log_error
 
 class CommandServer(threading.Thread):
     """
-    RPC Server to receive control commands from external script (scripts/control.py).
-    Commands: DISCONNECT, RECONNECT, PAUSE
+    接收来自外部脚本 (scripts/control.py) 控制命令的 RPC 服务器。
+    命令：DISCONNECT, RECONNECT, PAUSE
     """
     def __init__(self, context):
         super().__init__()
-        self.context = context  # Should provide methods: disconnect(), reconnect(), pause()
+        self.context = context  # 应提供方法：disconnect(), reconnect(), pause()
         self.host = config.RPC_HOST
         self.port = config.RPC_PORT
         self.running = True
