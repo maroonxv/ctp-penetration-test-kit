@@ -10,6 +10,58 @@
 - 通过 Web 界面直观监控测试进度与资金状态。
 - 灵活配置测试合约与风控参数。
 
+### 项目结构
+
+```text
+C:\USERS\ADMINISTRATOR\LAI\PENETRATION_TEST
+|   .env
+|   .env.example
+|   .gitignore
+|   config.yaml
+|   LICENSE
+|   README.md
+|   requirements.txt
+|   run.bat
+|
++---doc
+|       architecture.md
+|       interaction.md
+|       log_capture_design.md
+|       method_design.md
+|       real_disconnect.md
+|       separate_flask_ctp.md
+|
++---log
+|   \---宏源期货
++---src
+|   |   logger.py
+|   |   read_config.py
+|   |   socket_handler.py
+|   |   utils.py
+|   |   worker.py
+|   |   __init__.py
+|   |
+|   +---core
+|   |   |   engine.py
+|   |   |   risk.py
+|   |   |   server.py
+|   |   |   __init__.py
+|   |
+|   +---tests
+|   |   |   cases.py
+|   |   |   __init__.py
+|   |
+|   +---web
+|   |   |   app.py
+|   |   |
+|   |   +---static
+|   |   |   \---css
+|   |   |           style.css
+|   |   |
+|   |   +---templates
+|   |   |       index.html
+```
+
 ## 快速开始
 
 ### 1. 环境准备
