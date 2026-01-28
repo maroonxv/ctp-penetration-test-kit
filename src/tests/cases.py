@@ -459,13 +459,19 @@ def test_2_4_2_error_prompt(engine: TestEngine):
 
     # 3. 市场状态错误 (2.4.2.3)
     log_info("--- 测试点 2.4.2.3: 市场状态错误回报 ---")
+    
+    # 优先使用专用测试合约的交易所信息
+    exchange = engine.contract.exchange
+    if engine.rest_test_contract:
+        exchange = engine.rest_test_contract.exchange
+
     req_market = OrderRequest(
-        symbol=engine.contract.symbol,
-        exchange=engine.contract.exchange,
+        symbol=config.REST_TEST_SYMBOL,
+        exchange=exchange,
         direction=Direction.LONG,
         type=OrderType.LIMIT,
         volume=1,
-        price=config.SAFE_BUY_PRICE,
+        price=config.REST_TEST_PRICE,
         offset=Offset.OPEN,
         reference="MarketErrTest"
     )

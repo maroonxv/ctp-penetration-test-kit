@@ -31,6 +31,7 @@ class TestEngine:
         
         # 状态
         self.contract: Optional[ContractData] = None
+        self.rest_test_contract: Optional[ContractData] = None
         self.orders: Dict[str, OrderData] = {}
         self.last_account_data = None  # (balance, available)
         self.account: Optional[AccountData] = None # 缓存最新的账户信息

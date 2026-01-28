@@ -19,3 +19,7 @@ risk_thresholds:
   
   # 相同指令(合约、价格、方向等完全一致)允许的最大重复次数 (触发重复报单监测 2.2.3)
   max_symbol_order_count: 3
+
+rest_test_symbol: "LC2607"
+
+rest_test_price: 168220

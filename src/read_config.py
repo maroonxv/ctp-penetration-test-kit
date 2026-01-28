@@ -102,6 +102,10 @@ TEST_SYMBOL = YAML_CONFIG.get("test_symbol", "IF2602")
 SAFE_BUY_PRICE = float(YAML_CONFIG.get("safe_buy_price", 4700.0))
 DEAL_BUY_PRICE = float(YAML_CONFIG.get("deal_buy_price", 4800.0))
 
+# 市场状态错误测试配置
+REST_TEST_SYMBOL = YAML_CONFIG.get("rest_test_symbol", "LC2607")
+REST_TEST_PRICE = float(YAML_CONFIG.get("rest_test_price", 168220))
+
 # 从 YAML 读取风控阈值
 RISK_THRESHOLDS = YAML_CONFIG.get("risk_thresholds", {
     "max_order_count": 5,
