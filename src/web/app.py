@@ -10,7 +10,7 @@ import subprocess
 # 确保项目根目录在 sys.path 中（当作为脚本运行时）
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session
 from flask_socketio import SocketIO
 from src.socket_handler import SocketIOHandler
 from src import read_config as config
@@ -21,7 +21,8 @@ import engineio
 engineio.payload.Payload.max_decode_packets = 100
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'ctp_test_secret'
+# Generate a random key on startup to invalidate previous sessions
+app.config['SECRET_KEY'] = os.urandom(24)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 setup_logger()
@@ -136,15 +137,55 @@ def _relay_case_finished(data):
 
 def get_masked_env():
     """读取配置 (按需脱敏)"""
+    # 每次读取最新配置
+    env_vars = config.load_env(config.ENV_PATH)
     return {
-        "CTP_NAME": config.CTP_NAME,
-        "CTP_USERNAME": config.CTP_USERNAME,
-        "CTP_TD_SERVER": config.CTP_TD_SERVER,
-        "CTP_MD_SERVER": config.CTP_SETTING.get("行情服务器", "")
+        "CTP_NAME": env_vars.get("CTP_NAME", "Unknown"),
+        "CTP_USERNAME": env_vars.get("CTP_USERNAME", ""),
+        "CTP_TD_SERVER": env_vars.get("CTP_TD_SERVER", ""),
+        "CTP_MD_SERVER": env_vars.get("CTP_MD_SERVER", "")
     }
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        # Get data from form
+        data = {
+            'CTP_NAME': request.form.get('CTP_NAME'),
+            'CTP_USERNAME': request.form.get('CTP_USERNAME'),
+            'CTP_PASSWORD': request.form.get('CTP_PASSWORD'),
+            'CTP_BROKER_ID': request.form.get('CTP_BROKER_ID'),
+            'CTP_TD_SERVER': request.form.get('CTP_TD_SERVER'),
+            'CTP_MD_SERVER': request.form.get('CTP_MD_SERVER'),
+            'APPID': request.form.get('APPID'),
+            'CTP_AUTH_CODE': request.form.get('CTP_AUTH_CODE'),
+            'CTP_PRODUCT_INFO': request.form.get('CTP_PRODUCT_INFO', '')
+        }
+        
+        # Save to .env
+        config.save_env(config.ENV_PATH, data)
+        
+        # Set session
+        session['logged_in'] = True
+        
+        # Restart worker to pick up new config
+        if process_manager.is_running():
+            process_manager.restart_worker()
+        else:
+            process_manager.start_worker()
+            
+        return redirect(url_for('index'))
+        
+    # GET
+    env_vars = config.load_env(config.ENV_PATH)
+    return render_template('login.html', env=env_vars)
+
 
 @app.route('/')
 def index():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
     return render_template('index.html', env=get_masked_env())
 
 def _now_text() -> str:
@@ -375,5 +416,5 @@ def worker_kill():
     return jsonify({"status": "success", "msg": "Worker 已终止"})
 
 if __name__ == '__main__':
-    process_manager.start_worker()
+    # process_manager.start_worker() # Delayed until login
     socketio.run(app, host='0.0.0.0', port=5006, debug=False)

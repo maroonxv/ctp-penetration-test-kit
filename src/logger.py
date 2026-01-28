@@ -33,6 +33,16 @@ def setup_logger():
     # 文件处理器
     file_handler = logging.FileHandler(log_filepath, encoding='utf-8')
     file_handler.setFormatter(formatter)
+    
+    # 过滤掉 Flask/Werkzeug 相关的日志，不写入文件
+    class NoFlaskFilter(logging.Filter):
+        def filter(self, record):
+            name = record.name
+            if name and (name.startswith('werkzeug') or name.startswith('flask') or name.startswith('socketio') or name.startswith('engineio')):
+                return False
+            return True
+
+    file_handler.addFilter(NoFlaskFilter())
     logger.addHandler(file_handler)
     
     # 流处理器 (控制台)

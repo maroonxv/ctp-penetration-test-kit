@@ -191,3 +191,47 @@ h1, h2, h3, h4, h5, h6 {
 ::-webkit-scrollbar-thumb:hover {
     background-color: #636366;
 }
+
+/* Apple-style Toast Notification */
+.apple-toast {
+    background-color: rgba(28, 28, 30, 0.85) !important; /* Dark frosted glass */
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
+    color: var(--text-primary) !important;
+    font-family: var(--font-stack);
+    overflow: hidden;
+    margin-bottom: 12px;
+    max-width: 380px;
+    width: 100%;
+}
+
+.apple-toast-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #fff;
+    letter-spacing: -0.01em;
+}
+
+.apple-toast-message {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    white-space: pre-wrap;
+}
+
+/* Icon colors - override bootstrap text utilities if needed, but text-danger/warning usually work well */
+.apple-toast .text-danger {
+    color: #ff453a !important; /* Apple Red */
+}
+
+.apple-toast .text-warning {
+    color: #ff9f0a !important; /* Apple Orange */
+}
+
+/* Override Bootstrap toast default max-width if necessary */
+.toast {
+    max-width: 380px !important;
+}

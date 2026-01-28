@@ -34,6 +34,46 @@ CONFIG_YAML_PATH = os.path.join(PROJECT_ROOT, "config.yaml")
 ENV_VARS = load_env(ENV_PATH)
 YAML_CONFIG = load_yaml_config(CONFIG_YAML_PATH)
 
+def save_env(env_path: str, data: Dict[str, str]) -> None:
+    """更新或保存 .env 文件"""
+    lines = []
+    if os.path.exists(env_path):
+        with open(env_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+
+    new_lines = []
+    processed_keys = set()
+    
+    # 更新现有键值
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#'):
+            new_lines.append(line)
+            continue
+        
+        if '=' in line:
+            key, _ = stripped.split('=', 1)
+            key = key.strip()
+            if key in data:
+                new_lines.append(f"{key}={data[key]}\n")
+                processed_keys.add(key)
+            else:
+                new_lines.append(line)
+        else:
+            new_lines.append(line)
+            
+    # 添加新键值
+    for key, value in data.items():
+        if key not in processed_keys:
+            # 如果最后一行不是换行符，先添加一个换行
+            if new_lines and not new_lines[-1].endswith('\n'):
+                new_lines.append('\n')
+            new_lines.append(f"{key}={value}\n")
+            
+    with open(env_path, 'w', encoding='utf-8') as f:
+        f.writelines(new_lines)
+
+
 # 全局常量
 CTP_NAME = ENV_VARS.get("CTP_NAME", "Unknown")
 CTP_USERNAME = ENV_VARS.get("CTP_USERNAME", "")
@@ -53,7 +93,8 @@ CTP_SETTING = {
     "交易服务器": CTP_TD_SERVER,
     "行情服务器": ENV_VARS.get("CTP_MD_SERVER", ""),
     "产品名称": CTP_APP_ID,
-    "授权编码": CTP_AUTH_CODE
+    "授权编码": CTP_AUTH_CODE,
+    "产品信息": ENV_VARS.get("CTP_PRODUCT_INFO", "")
 }
 
 # 从 YAML 读取测试配置
