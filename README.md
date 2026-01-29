@@ -62,9 +62,9 @@ C:\USERS\ADMINISTRATOR\LAI\PENETRATION_TEST
 |   |   |       index.html
 ```
 
-## 快速开始
+## 2. 快速开始
 
-### 1. 环境准备
+### 2.1. 环境准备
 
 确保您已安装 Python 3.10+ 环境。
 
@@ -77,7 +77,7 @@ cd penetration_test
 pip install -r requirements.txt
 ```
 
-### 2. 配置参数
+### 2.2. 配置参数
 
 1.  复制环境配置文件模板：
     ```bash
@@ -86,7 +86,7 @@ pip install -r requirements.txt
 2.  编辑 `.env` 文件，填入您的 CTP 测试账户信息（账号、密码、BrokerID、前置机地址等）。
 3.  编辑 `config.yaml` 文件，配置测试合约代码、价格及风控阈值。
 
-### 3. 运行测试
+### 2.3. 运行测试
 
 启动 Web 控制台：
 
@@ -98,7 +98,7 @@ python src/web/app.py
 
 ---
 
-## 2. 测试过程记录详情
+## 3. 测试过程记录详情 (对应测试规范)
 
 ### 2.1. 接口适应性
 

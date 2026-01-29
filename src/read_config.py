@@ -73,6 +73,16 @@ def save_env(env_path: str, data: Dict[str, str]) -> None:
     with open(env_path, 'w', encoding='utf-8') as f:
         f.writelines(new_lines)
 
+def save_yaml_config(config_path: str, data: Dict[str, Any]) -> None:
+    """更新或保存 config.yaml 文件"""
+    # 读取现有配置以保留未修改的项
+    current_config = load_yaml_config(config_path)
+    current_config.update(data)
+    
+    with open(config_path, 'w', encoding='utf-8') as f:
+        yaml.safe_dump(current_config, f, allow_unicode=True, default_flow_style=False)
+
+
 
 # 全局常量
 CTP_NAME = ENV_VARS.get("CTP_NAME", "Unknown")

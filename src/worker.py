@@ -1,5 +1,22 @@
 import os
 import sys
+
+# 注入本地库路径，确保 vnpy_ctptest 的 C 扩展能正确加载
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LIB_CTPTEST_PATH = os.path.join(PROJECT_ROOT, "lib", "vnpy_ctptest")
+if LIB_CTPTEST_PATH not in sys.path:
+    sys.path.insert(0, LIB_CTPTEST_PATH)
+
+# 处理 Windows 下的 DLL 依赖加载问题
+DLL_PATH = os.path.join(LIB_CTPTEST_PATH, "vnpy_ctptest", "api")
+if os.name == "nt":
+    if hasattr(os, "add_dll_directory"):
+        try:
+            os.add_dll_directory(DLL_PATH)
+        except Exception:
+            pass
+    os.environ["PATH"] = DLL_PATH + os.pathsep + os.environ["PATH"]
+
 import time
 import queue
 import logging
@@ -10,6 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 from src.core.engine import TestEngine
 from src.core.server import CommandServer
 from src.tests import cases
+from src import read_config
 from src.logger import setup_logger, log_info, log_error
 
 try:
@@ -265,6 +283,49 @@ class WorkerController:
                 return {"request_id": request_id, "ok": True, "data": (self.get_risk_snapshot().get("thresholds") or {})}
             if req_type == "GET_RISK_SNAPSHOT":
                 return {"request_id": request_id, "ok": True, "data": self.get_risk_snapshot()}
+            if req_type == "GET_TEST_CONFIG":
+                return {
+                    "request_id": request_id,
+                    "ok": True,
+                    "data": {
+                        "test_symbol": read_config.TEST_SYMBOL,
+                        "safe_buy_price": read_config.SAFE_BUY_PRICE,
+                        "deal_buy_price": read_config.DEAL_BUY_PRICE
+                    }
+                }
+            if req_type == "SET_TEST_CONFIG":
+                test_symbol = payload.get("test_symbol")
+                safe_buy_price = payload.get("safe_buy_price")
+                deal_buy_price = payload.get("deal_buy_price")
+                
+                # Update memory
+                if test_symbol:
+                    read_config.TEST_SYMBOL = str(test_symbol)
+                if safe_buy_price:
+                    read_config.SAFE_BUY_PRICE = float(safe_buy_price)
+                if deal_buy_price:
+                    read_config.DEAL_BUY_PRICE = float(deal_buy_price)
+                    
+                # Save to file
+                data_to_save = {}
+                if test_symbol:
+                    data_to_save["test_symbol"] = read_config.TEST_SYMBOL
+                if safe_buy_price:
+                    data_to_save["safe_buy_price"] = read_config.SAFE_BUY_PRICE
+                if deal_buy_price:
+                    data_to_save["deal_buy_price"] = read_config.DEAL_BUY_PRICE
+                
+                read_config.save_yaml_config(read_config.CONFIG_YAML_PATH, data_to_save)
+                
+                return {
+                    "request_id": request_id, 
+                    "ok": True, 
+                    "data": {
+                        "test_symbol": read_config.TEST_SYMBOL,
+                        "safe_buy_price": read_config.SAFE_BUY_PRICE,
+                        "deal_buy_price": read_config.DEAL_BUY_PRICE
+                    }
+                }
             if req_type == "SET_THRESHOLDS":
                 max_order_count = payload.get("max_order_count")
                 max_cancel_count = payload.get("max_cancel_count")

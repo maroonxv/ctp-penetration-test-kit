@@ -386,6 +386,34 @@ def set_risk_thresholds():
     return jsonify({"status": "success", "data": resp.get("data") or {}})
 
 
+@app.route("/api/test/config", methods=["GET"])
+def get_test_config():
+    process_manager.start_worker()
+    resp = rpc.request("GET_TEST_CONFIG", {}, timeout=2.0)
+    if not resp.get("ok"):
+        return jsonify({"status": "error", "msg": resp.get("error", "RPC 调用失败")}), 500
+    return jsonify({"status": "success", "data": resp.get("data") or {}})
+
+
+@app.route("/api/test/config", methods=["POST"])
+def set_test_config():
+    process_manager.start_worker()
+    body = request.get_json(silent=True) or {}
+    
+    payload = {}
+    if "test_symbol" in body:
+        payload["test_symbol"] = body.get("test_symbol")
+    if "safe_buy_price" in body:
+        payload["safe_buy_price"] = body.get("safe_buy_price")
+    if "deal_buy_price" in body:
+        payload["deal_buy_price"] = body.get("deal_buy_price")
+
+    resp = rpc.request("SET_TEST_CONFIG", payload, timeout=3.0)
+    if not resp.get("ok"):
+        return jsonify({"status": "error", "msg": resp.get("error", "RPC 调用失败")}), 500
+    return jsonify({"status": "success", "data": resp.get("data") or {}})
+
+
 @app.route("/api/risk/snapshot", methods=["GET"])
 def get_risk_snapshot():
     process_manager.start_worker()

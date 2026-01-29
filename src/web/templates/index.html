@@ -46,7 +46,7 @@
                         <div id="c21" class="accordion-collapse collapse show" data-bs-parent="#testAccordion">
                             <div class="accordion-body p-2">
                                 <button onclick="runTest('2.1.1')" class="btn btn-outline-light btn-sm w-100 mb-2">2.1.1 连通性测试</button>
-                                <button onclick="runTest('2.1.2')" class="btn btn-outline-light btn-sm w-100">2.1.2 基础交易(开/平/撤)</button>
+                                <button onclick="openTestConfigModal()" class="btn btn-outline-light btn-sm w-100">2.1.2 基础交易(开/平/撤)</button>
                             </div>
                         </div>
                     </div>
@@ -165,6 +165,38 @@
         </div>
     </div>
 
+    <!-- Test Config Modal -->
+    <div class="modal fade" id="testConfigModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">2.1.2 基础交易参数设置</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label for="conf-symbol" class="form-label" style="font-size: 0.9em;">测试合约代码 (test_symbol)</label>
+                            <input id="conf-symbol" type="text" class="form-control form-control-sm" placeholder="例如 IF2602">
+                        </div>
+                        <div class="col-12">
+                            <label for="conf-safe-price" class="form-label" style="font-size: 0.9em;">安全买入价 (safe_buy_price) - 平仓用</label>
+                            <input id="conf-safe-price" type="number" step="0.2" class="form-control form-control-sm" placeholder="例如 4700.0">
+                        </div>
+                        <div class="col-12">
+                            <label for="conf-deal-price" class="form-label" style="font-size: 0.9em;">成交买入价 (deal_buy_price) - 开仓用</label>
+                            <input id="conf-deal-price" type="number" step="0.2" class="form-control form-control-sm" placeholder="例如 4800.0">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveAndRunTestConfig()">保存并运行测试</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
         <div id="toast-container"></div>
     </div>
@@ -194,11 +226,23 @@
             repeat: document.getElementById('metric-repeat'),
         };
 
+        const testConfigInputs = {
+            symbol: document.getElementById('conf-symbol'),
+            safePrice: document.getElementById('conf-safe-price'),
+            dealPrice: document.getElementById('conf-deal-price'),
+        };
+
         let thresholdModal;
+        let testConfigModal;
+
         document.addEventListener('DOMContentLoaded', function() {
             const el = document.getElementById('thresholdModal');
             if (el) {
                 thresholdModal = new bootstrap.Modal(el);
+            }
+            const elTest = document.getElementById('testConfigModal');
+            if (elTest) {
+                testConfigModal = new bootstrap.Modal(elTest);
             }
         });
 
@@ -342,6 +386,63 @@
                     runTest('2.3.1');
                 }
             });
+        }
+
+        function loadTestConfigFromServer() {
+            return fetch('/api/test/config', { method: 'GET' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status !== 'success') throw new Error(data.msg || '读取配置失败');
+                    const conf = data.data || {};
+                    if (conf.test_symbol) testConfigInputs.symbol.value = conf.test_symbol;
+                    if (conf.safe_buy_price) testConfigInputs.safePrice.value = conf.safe_buy_price;
+                    if (conf.deal_buy_price) testConfigInputs.dealPrice.value = conf.deal_buy_price;
+                    return conf;
+                })
+                .catch(err => {
+                    showToast('读取配置失败', String(err), 'danger');
+                });
+        }
+
+        function openTestConfigModal() {
+            if (testConfigModal) {
+                loadTestConfigFromServer().then(() => {
+                    testConfigModal.show();
+                });
+            }
+        }
+
+        function saveAndRunTestConfig() {
+            const symbol = testConfigInputs.symbol.value.trim();
+            const safePrice = parseFloat(testConfigInputs.safePrice.value);
+            const dealPrice = parseFloat(testConfigInputs.dealPrice.value);
+
+            if (!symbol || isNaN(safePrice) || isNaN(dealPrice)) {
+                showToast('参数错误', '请填写有效的参数', 'danger');
+                return;
+            }
+
+            const payload = { 
+                test_symbol: symbol, 
+                safe_buy_price: safePrice, 
+                deal_buy_price: dealPrice 
+            };
+
+            fetch('/api/test/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status !== 'success') throw new Error(data.msg || '配置保存失败');
+                    showToast('配置已更新', `合约=${symbol}, 价格=${safePrice}/${dealPrice}`, 'warning');
+                    if (testConfigModal) testConfigModal.hide();
+                    runTest('2.1.2');
+                })
+                .catch(err => {
+                    showToast('配置保存失败', String(err), 'danger');
+                });
         }
 
         // 日志接收逻辑

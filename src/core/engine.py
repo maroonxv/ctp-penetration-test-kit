@@ -168,6 +168,9 @@ class TestEngine:
         if contract.symbol == config.TEST_SYMBOL:
             self.contract = contract
             log_info(f"Contract found: {contract.vt_symbol}")
+        elif contract.symbol == config.REST_TEST_SYMBOL:
+            self.rest_test_contract = contract
+            log_info(f"Rest Test Contract found: {contract.vt_symbol}")
         # 其他合约静默处理，避免日志刷屏
 
     def on_account(self, event: Event):

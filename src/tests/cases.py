@@ -42,8 +42,17 @@ def test_2_1_2_basic_trading(engine: TestEngine):
     覆盖: 2.1.2.1 开仓, 2.1.2.2 平仓, 2.1.2.3 撤单
     """
     log_info("\n>>> [2.1.2] 基础交易功能测试")
+    
+    # 增加等待逻辑，防止合约信息尚未就绪
     if not engine.contract:
-        log_error("未获取到合约信息，跳过测试")
+        for _ in range(10):
+            log_info("等待合约信息同步...")
+            wait_for_reaction(1)
+            if engine.contract:
+                break
+
+    if not engine.contract:
+        log_error(f"未获取到合约信息 ({config.TEST_SYMBOL})，跳过测试")
         return
 
     # 0. 环境清理
@@ -464,6 +473,10 @@ def test_2_4_2_error_prompt(engine: TestEngine):
     exchange = engine.contract.exchange
     if engine.rest_test_contract:
         exchange = engine.rest_test_contract.exchange
+    elif config.REST_TEST_SYMBOL == "LC2607":
+        exchange = Exchange.GFEX
+    else:
+        log_warning(f"未找到测试合约 {config.REST_TEST_SYMBOL} 的合约信息，将使用默认交易所 {exchange.value}，可能导致测试失败。")
 
     req_market = OrderRequest(
         symbol=config.REST_TEST_SYMBOL,
