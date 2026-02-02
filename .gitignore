@@ -3,3 +3,4 @@ log/
 .env
 __pycache__/
 temp/
+terminal_info.dat

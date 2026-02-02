@@ -208,6 +208,18 @@ h1, h2, h3, h4, h5, h6 {
     width: 100%;
 }
 
+.apple-toast-warning {
+    border-left: 4px solid #ff9f0a !important;
+}
+
+.apple-toast-danger {
+    border-left: 4px solid #ff453a !important;
+}
+
+.apple-toast-success {
+    border-left: 4px solid #30d158 !important;
+}
+
 .apple-toast-title {
     font-weight: 600;
     font-size: 0.95rem;

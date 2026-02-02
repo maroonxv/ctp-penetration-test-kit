@@ -75,8 +75,6 @@ class TestRiskManager:
         return int(self.repeat_order_count) + int(self.repeat_cancel_count)
 
     def _check_repeat_threshold(self) -> None:
-        if self._warned_repeat_threshold:
-            return
         threshold = int(self.max_repeat_count or 0)
         if threshold <= 0:
             return
@@ -125,7 +123,7 @@ class TestRiskManager:
             self._check_repeat_threshold()
 
         order_threshold = int(self.max_order_count or 0)
-        if order_threshold > 0 and (not self._warned_order_threshold) and self.order_count >= order_threshold:
+        if order_threshold > 0 and self.order_count >= order_threshold:
             log_warning(f"【阈值预警】报单总数({self.order_count})达到或超过阈值({order_threshold})! 🚨")
             self._warned_order_threshold = True
             
@@ -163,7 +161,7 @@ class TestRiskManager:
             self.last_log_cancel_count = self.cancel_count
 
         cancel_threshold = int(self.max_cancel_count or 0)
-        if cancel_threshold > 0 and (not self._warned_cancel_threshold) and self.cancel_count >= cancel_threshold:
+        if cancel_threshold > 0 and self.cancel_count >= cancel_threshold:
             log_warning(f"【阈值预警】撤单总数({self.cancel_count})达到或超过阈值({cancel_threshold})! 🚨")
             self._warned_cancel_threshold = True
             

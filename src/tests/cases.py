@@ -36,6 +36,17 @@ def test_2_1_1_connectivity(engine: TestEngine):
         wait_for_reaction(5, "等待账户资金回报")
         engine.log_current_account()
 
+    # 模拟断线并触发前端弹窗
+    log_info("--- 测试点: 模拟断线以触发弹窗 ---")
+    engine.disconnect()
+    log_info("【系统断线】已断开连接")
+    wait_for_reaction(2, "等待前端弹窗显示")
+
+    # 恢复连接以便后续测试
+    log_info("正在恢复连接...")
+    engine.reconnect()
+    wait_for_reaction(5, "等待重连完成")
+
 def test_2_1_2_basic_trading(engine: TestEngine):
     """
     2.1.2 基础交易功能
@@ -135,6 +146,7 @@ def test_2_2_1_connection_monitor(engine: TestEngine):
     # 2.2.1.2 断线模拟
     log_info("--- 测试点 2.2.1.2: 模拟断线（逻辑断线） ---")
     engine.disconnect()
+    log_info("【系统断线】已检测到连接断开，正在触发预警...")
 
     log_info("已调用 disconnect（本工具采用逻辑断线：不物理 close，避免底层卡死）。")
     gateway = engine.main_engine.get_gateway(engine.gateway_name)

@@ -3,6 +3,9 @@ import sys
 
 # 注入本地库路径，确保 vnpy_ctptest 的 C 扩展能正确加载
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 LIB_CTPTEST_PATH = os.path.join(PROJECT_ROOT, "lib", "vnpy_ctptest")
 if LIB_CTPTEST_PATH not in sys.path:
     sys.path.insert(0, LIB_CTPTEST_PATH)
@@ -35,9 +38,7 @@ try:
 except Exception:
     socketio_client = None
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if PROJECT_ROOT not in sys.path:
-    sys.path.append(PROJECT_ROOT)
+
 
 
 def _color_for(levelno: int, msg: str) -> str:
@@ -384,10 +385,24 @@ def main():
         controller = WorkerController()
         server = CommandServer(controller)
         server.start()
+        
+        # 给一点时间让 Server 启动并绑定端口
+        time.sleep(1.0)
+        if not server.is_alive():
+             log_error("RPC Server 未能成功启动（可能端口被占用），Worker 即将退出。")
+             if controller:
+                 controller.stop()
+                 if controller.engine:
+                     controller.engine.disconnect()
+             return
+
         log_info("交易进程就绪，等待指令...")
 
-        while True:
+        while server.is_alive():
             time.sleep(1)
+            
+        log_error("RPC Server 已停止，Worker 即将退出。")
+            
     except KeyboardInterrupt:
         log_info("交易进程收到退出信号。")
     except Exception as e:
