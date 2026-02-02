@@ -321,22 +321,13 @@ def _run_2_5_1_orchestrate(case_id: str) -> tuple[bool, dict]:
 def run_case(case_id):
     process_manager.start_worker()
     case_id = (case_id or "").strip()
-    if case_id == "2.2.1":
-        ok, data = _hard_disconnect_orchestrate(case_id)
-        if not ok and data.get("reason") == "busy":
-            return jsonify({"status": "busy", "msg": "当前有测试正在运行，请等待结束", "data": data}), 200
-        if not ok:
-            return jsonify({"status": "error", "msg": f"{case_id} 连接中断演练失败", "data": data}), 500
-        return jsonify({"status": "success", "msg": f"{case_id} 连接中断演练已完成", "data": data})
-
-    if case_id == "2.5.1":
-        ok, data = _run_2_5_1_orchestrate(case_id)
-        if not ok:
-            is_busy = data.get("busy") or (data.get("reason") == "rpc_failed_or_busy")
-            msg = "当前有测试正在运行，请等待结束" if is_busy else f"{case_id} 执行失败: {data.get('reason')}"
-            status_code = 200 if is_busy else 500
-            return jsonify({"status": "busy" if is_busy else "error", "msg": msg, "data": data}), status_code
-        return jsonify({"status": "success", "msg": f"{case_id} 测试已完成", "data": data})
+    
+    # 2.5.1.3: Force Exit (Kill Worker)
+    if case_id == "2.5.1.3":
+        log.info(f"【{case_id}】2.5.1.3：强制账号退出（模拟断电/进程终止） {_now_text()}")
+        process_manager.kill_worker()
+        log.info(f"【{case_id}】Worker 已终止")
+        return jsonify({"status": "success", "msg": "Worker 已强制终止", "data": {"action": "kill"}})
 
     resp = rpc.request("RUN_CASE", {"case_id": case_id}, timeout=3.0)
     if not resp.get("ok"):

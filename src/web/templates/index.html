@@ -42,55 +42,77 @@
                 <div class="accordion" id="testAccordion">
                     <!-- 2.1 基础 -->
                     <div class="accordion-item">
-                        <h2 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#c21">2.1 接口适应性</button></h2>
+                        <h2 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#c21">接口适应性</button></h2>
                         <div id="c21" class="accordion-collapse collapse show" data-bs-parent="#testAccordion">
                             <div class="accordion-body p-2">
-                                <button onclick="runTest('2.1.1')" class="btn btn-outline-light btn-sm w-100 mb-2">2.1.1 连通性测试</button>
-                                <button onclick="openTestConfigModal()" class="btn btn-outline-light btn-sm w-100">2.1.2 基础交易(开/平/撤)</button>
+                                <button onclick="runTest('2.1.1')" class="btn btn-outline-light btn-sm w-100 mb-2">连通性测试</button>
+                                <button onclick="openTestConfigModal()" class="btn btn-outline-secondary btn-sm w-100 mb-2">设置测试参数</button>
+                                <button onclick="runTest('2.1.2.1')" class="btn btn-outline-light btn-sm w-100 mb-2">开仓测试</button>
+                                <button onclick="runTest('2.1.2.2')" class="btn btn-outline-light btn-sm w-100 mb-2">平仓测试</button>
+                                <button onclick="runTest('2.1.2.3')" class="btn btn-outline-light btn-sm w-100">撤单测试</button>
                             </div>
                         </div>
                     </div>
 
                     <!-- 2.2 异常 -->
                     <div class="accordion-item">
-                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c22">2.2 异常监测</button></h2>
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c22">异常监测</button></h2>
                         <div id="c22" class="accordion-collapse collapse" data-bs-parent="#testAccordion">
                             <div class="accordion-body p-2">
-                                <button onclick="runTest('2.2.1')" class="btn btn-outline-light btn-sm w-100 mb-2">2.2.1 连接状态监测</button>
-                                <button onclick="runTest('2.2.2')" class="btn btn-outline-light btn-sm w-100 mb-2">2.2.2 报撤单笔数监测</button>
-                                <button onclick="runTest('2.2.3')" class="btn btn-outline-light btn-sm w-100">2.2.3 重复报单监测</button>
+                                <button onclick="runTest('2.2.1.1')" class="btn btn-outline-light btn-sm w-100 mb-2">连接状态监测</button>
+                                <button onclick="runTest('2.2.1.2')" class="btn btn-outline-light btn-sm w-100 mb-2">断线模拟</button>
+                                <button onclick="runTest('2.2.1.3')" class="btn btn-outline-light btn-sm w-100 mb-2">重连模拟</button>
+                                <hr class="border-secondary opacity-25 my-3">
+                                <button onclick="runTest('2.2.2.1')" class="btn btn-outline-light btn-sm w-100 mb-2">报单笔数监测</button>
+                                <button onclick="runTest('2.2.2.2')" class="btn btn-outline-light btn-sm w-100 mb-2">撤单笔数监测</button>
+                                <hr class="border-secondary opacity-25 my-3">
+                                <button onclick="runTest('2.2.3.1')" class="btn btn-outline-light btn-sm w-100 mb-2">重复报单监测(开)</button>
+                                <button onclick="runTest('2.2.3.2')" class="btn btn-outline-light btn-sm w-100 mb-2">重复报单监测(平)</button>
+                                <button onclick="runTest('2.2.3.3')" class="btn btn-outline-light btn-sm w-100">重复报单监测(撤)</button>
                             </div>
                         </div>
                     </div>
                     
                     <!-- 2.3 阈值 -->
                     <div class="accordion-item">
-                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c23">2.3 阈值管理</button></h2>
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c23">阈值管理</button></h2>
                         <div id="c23" class="accordion-collapse collapse" data-bs-parent="#testAccordion">
                             <div class="accordion-body p-2">
-                                <button onclick="openThresholdModal()" class="btn btn-outline-light btn-sm w-100 mb-2">2.3.1 阈值设置及预警</button>
+                                <button onclick="openThresholdModal()" class="btn btn-outline-secondary btn-sm w-100 mb-2">设置阈值</button>
+                                <button onclick="runTest('2.3.1.1')" class="btn btn-outline-light btn-sm w-100 mb-2">报单笔数预警</button>
+                                <button onclick="runTest('2.3.1.3')" class="btn btn-outline-light btn-sm w-100 mb-2">撤单笔数预警</button>
+                                <button onclick="runTest('2.3.1.5')" class="btn btn-outline-light btn-sm w-100">重复报单预警</button>
                             </div>
                         </div>
                     </div>
                     
                     <!-- 2.4 错误 -->
                     <div class="accordion-item">
-                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c24">2.4 错误防范</button></h2>
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c24">错误防范</button></h2>
                         <div id="c24" class="accordion-collapse collapse" data-bs-parent="#testAccordion">
                             <div class="accordion-body p-2">
-                                <button onclick="runTest('2.4.1')" class="btn btn-outline-light btn-sm w-100 mb-2">2.4.1 交易指令检查</button>
-                                <button onclick="runTest('2.4.2')" class="btn btn-outline-light btn-sm w-100">2.4.2 错误提示功能</button>
+                                <button onclick="runTest('2.4.1.1')" class="btn btn-outline-light btn-sm w-100 mb-2">合约代码错误</button>
+                                <button onclick="runTest('2.4.1.2')" class="btn btn-outline-light btn-sm w-100 mb-2">价格错误</button>
+                                <button onclick="runTest('2.4.1.3')" class="btn btn-outline-light btn-sm w-100 mb-2">数量超限</button>
+                                <hr class="border-secondary opacity-25 my-3">
+                                <button onclick="runTest('2.4.2.1')" class="btn btn-outline-light btn-sm w-100 mb-2">资金不足提示</button>
+                                <button onclick="runTest('2.4.2.2')" class="btn btn-outline-light btn-sm w-100 mb-2">持仓不足提示</button>
+                                <button onclick="runTest('2.4.2.3')" class="btn btn-outline-light btn-sm w-100">市场状态错误</button>
                             </div>
                         </div>
                     </div>
                     
                     <!-- 2.5 应急 -->
                     <div class="accordion-item">
-                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c25">2.5 应急处理</button></h2>
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c25">应急处理</button></h2>
                         <div id="c25" class="accordion-collapse collapse" data-bs-parent="#testAccordion">
                             <div class="accordion-body p-2">
-                                <button onclick="runTest('2.5.1')" class="btn btn-danger btn-sm w-100 mb-2">2.5.1 暂停交易</button>
-                                <button onclick="runTest('2.5.2')" class="btn btn-outline-light btn-sm w-100 mb-2">2.5.2 批量撤单</button>
+                                <button onclick="runTest('2.5.1.1')" class="btn btn-outline-light btn-sm w-100 mb-2">限制交易权限</button>
+                                <button onclick="runTest('2.5.1.2')" class="btn btn-outline-light btn-sm w-100 mb-2">暂停策略执行</button>
+                                <button onclick="runTest('2.5.1.3')" class="btn btn-danger btn-sm w-100 mb-2">强制账号退出</button>
+                                <hr class="border-secondary opacity-25 my-3">
+                                <button onclick="runTest('2.5.2.1')" class="btn btn-outline-light btn-sm w-100 mb-2">撤销部分成交</button>
+                                <button onclick="runTest('2.5.2.2')" class="btn btn-outline-light btn-sm w-100 mb-2">批量撤销所有</button>
                                 <hr class="border-secondary opacity-25 my-3">
                                 <button onclick="resetSystem()" class="btn btn-success btn-sm w-100">重置 / 恢复交易权限</button>
                             </div>
@@ -99,10 +121,10 @@
                     
                     <!-- 2.6 日志 -->
                     <div class="accordion-item">
-                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c26">2.6 日志记录</button></h2>
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c26">日志记录</button></h2>
                         <div id="c26" class="accordion-collapse collapse" data-bs-parent="#testAccordion">
                             <div class="accordion-body p-2">
-                                <button onclick="runTest('2.6.1')" class="btn btn-outline-light btn-sm w-100">2.6.1 日志记录功能</button>
+                                <button onclick="runTest('2.6.1')" class="btn btn-outline-light btn-sm w-100">日志记录功能</button>
                             </div>
                         </div>
                     </div>
@@ -125,7 +147,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">2.3.1 阈值设置及预警</h5>
+                    <h5 class="modal-title">阈值设置及预警</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -159,7 +181,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" onclick="saveAndRunThresholdTest()">保存并运行测试</button>
+                    <button type="button" class="btn btn-primary" onclick="saveThresholds()">保存配置</button>
                 </div>
             </div>
         </div>
@@ -170,7 +192,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">2.1.2 基础交易参数设置</h5>
+                    <h5 class="modal-title">基础交易参数设置</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -387,11 +409,10 @@
             }
         }
 
-        function saveAndRunThresholdTest() {
+        function saveThresholds() {
             applyThresholds().then((success) => {
                 if (success) {
                     if (thresholdModal) thresholdModal.hide();
-                    runTest('2.3.1');
                 }
             });
         }
@@ -420,7 +441,7 @@
             }
         }
 
-        function saveAndRunTestConfig() {
+        function saveTestConfig() {
             const symbol = testConfigInputs.symbol.value.trim();
             const safePrice = parseFloat(testConfigInputs.safePrice.value);
             const dealPrice = parseFloat(testConfigInputs.dealPrice.value);
@@ -446,7 +467,6 @@
                     if (data.status !== 'success') throw new Error(data.msg || '配置保存失败');
                     showToast('配置已更新', `合约=${symbol}, 价格=${safePrice}/${dealPrice}`, 'warning');
                     if (testConfigModal) testConfigModal.hide();
-                    runTest('2.1.2');
                 })
                 .catch(err => {
                     showToast('配置保存失败', String(err), 'danger');

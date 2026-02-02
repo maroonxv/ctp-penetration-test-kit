@@ -1,9 +1,9 @@
-deal_buy_price: 810.0
+deal_buy_price: 800.0
 rest_test_price: 168220
 rest_test_symbol: LC2607
 risk_thresholds:
   max_cancel_count: 5
   max_order_count: 5
   max_symbol_order_count: 3
-safe_buy_price: 780.0
+safe_buy_price: 775.0
 test_symbol: i2605
