@@ -111,6 +111,11 @@ CTP_SETTING = {
 TEST_SYMBOL = YAML_CONFIG.get("test_symbol", "IF2602")
 SAFE_BUY_PRICE = float(YAML_CONFIG.get("safe_buy_price", 4700.0))
 DEAL_BUY_PRICE = float(YAML_CONFIG.get("deal_buy_price", 4800.0))
+REPEAT_OPEN_THRESHOLD = int(YAML_CONFIG.get("repeat_open_threshold", 2) or 2)
+REPEAT_CLOSE_THRESHOLD = int(YAML_CONFIG.get("repeat_close_threshold", 2) or 2)
+VOLUME_LIMIT_VOLUME = int(YAML_CONFIG.get("volume_limit_volume", 10000) or 10000)
+ORDER_MONITOR_THRESHOLD = int(YAML_CONFIG.get("order_monitor_threshold", 1) or 1)
+CANCEL_MONITOR_THRESHOLD = int(YAML_CONFIG.get("cancel_monitor_threshold", 1) or 1)
 
 # 市场状态错误测试配置
 REST_TEST_SYMBOL = YAML_CONFIG.get("rest_test_symbol", "LC2607")

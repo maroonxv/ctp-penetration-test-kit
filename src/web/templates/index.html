@@ -63,9 +63,11 @@
                                 <button onclick="runTest('2.2.1.2')" class="btn btn-outline-light btn-sm w-100 mb-2">断线模拟</button>
                                 <button onclick="runTest('2.2.1.3')" class="btn btn-outline-light btn-sm w-100 mb-2">重连模拟</button>
                                 <hr class="border-secondary opacity-25 my-3">
+                                <button onclick="openOrderCancelMonitorConfigModal()" class="btn btn-outline-secondary btn-sm w-100 mb-2">设置报撤单监测阈值</button>
                                 <button onclick="runTest('2.2.2.1')" class="btn btn-outline-light btn-sm w-100 mb-2">报单笔数监测</button>
                                 <button onclick="runTest('2.2.2.2')" class="btn btn-outline-light btn-sm w-100 mb-2">撤单笔数监测</button>
                                 <hr class="border-secondary opacity-25 my-3">
+                                <button onclick="openRepeatMonitorConfigModal()" class="btn btn-outline-secondary btn-sm w-100 mb-2">设置重复报单监测阈值</button>
                                 <button onclick="runTest('2.2.3.1')" class="btn btn-outline-light btn-sm w-100 mb-2">重复报单监测(开)</button>
                                 <button onclick="runTest('2.2.3.2')" class="btn btn-outline-light btn-sm w-100 mb-2">重复报单监测(平)</button>
                                 <button onclick="runTest('2.2.3.3')" class="btn btn-outline-light btn-sm w-100">重复报单监测(撤)</button>
@@ -93,7 +95,7 @@
                             <div class="accordion-body p-2">
                                 <button onclick="runTest('2.4.1.1')" class="btn btn-outline-light btn-sm w-100 mb-2">合约代码错误</button>
                                 <button onclick="runTest('2.4.1.2')" class="btn btn-outline-light btn-sm w-100 mb-2">价格错误</button>
-                                <button onclick="runTest('2.4.1.3')" class="btn btn-outline-light btn-sm w-100 mb-2">数量超限</button>
+                                <button onclick="openVolumeLimitModal()" class="btn btn-outline-light btn-sm w-100 mb-2">数量超限</button>
                                 <hr class="border-secondary opacity-25 my-3">
                                 <button onclick="runTest('2.4.2.1')" class="btn btn-outline-light btn-sm w-100 mb-2">资金不足提示</button>
                                 <button onclick="runTest('2.4.2.2')" class="btn btn-outline-light btn-sm w-100 mb-2">持仓不足提示</button>
@@ -187,6 +189,33 @@
         </div>
     </div>
 
+    <div class="modal fade" id="volumeLimitModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">数量超限参数设置</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label for="volerr-symbol" class="form-label" style="font-size: 0.9em;">发单品种 (test_symbol)</label>
+                            <input id="volerr-symbol" type="text" class="form-control form-control-sm" placeholder="例如 IF2602">
+                        </div>
+                        <div class="col-12">
+                            <label for="volerr-volume" class="form-label" style="font-size: 0.9em;">委托手数 (volume)</label>
+                            <input id="volerr-volume" type="number" min="1" step="1" class="form-control form-control-sm" placeholder="例如 10000">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveAndRunVolumeLimit()">保存并运行测试</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Test Config Modal -->
     <div class="modal fade" id="testConfigModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
@@ -214,6 +243,74 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                     <button type="button" class="btn btn-primary" onclick="saveAndRunTestConfig()">保存并运行测试</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Repeat Monitor Config Modal -->
+    <div class="modal fade" id="repeatMonitorConfigModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">重复报单监测参数设置</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label for="repeat-open-thr" class="form-label" style="font-size: 0.9em;">开仓监测阈值 (repeat_open_threshold)</label>
+                            <input id="repeat-open-thr" type="number" min="1" step="1" class="form-control form-control-sm" placeholder="例如 2">
+                        </div>
+                        <div class="col-12">
+                            <label for="repeat-close-thr" class="form-label" style="font-size: 0.9em;">平仓监测阈值 (repeat_close_threshold)</label>
+                            <input id="repeat-close-thr" type="number" min="1" step="1" class="form-control form-control-sm" placeholder="例如 2">
+                        </div>
+                        <div class="col-12">
+                            <label for="repeat-conf-symbol" class="form-label" style="font-size: 0.9em;">测试合约代码 (test_symbol)</label>
+                            <input id="repeat-conf-symbol" type="text" class="form-control form-control-sm" placeholder="例如 IF2602">
+                        </div>
+                        <div class="col-12">
+                            <label for="repeat-conf-safe-price" class="form-label" style="font-size: 0.9em;">安全买入价 (safe_buy_price) - 平仓用</label>
+                            <input id="repeat-conf-safe-price" type="number" step="0.2" class="form-control form-control-sm" placeholder="例如 4700.0">
+                        </div>
+                        <div class="col-12">
+                            <label for="repeat-conf-deal-price" class="form-label" style="font-size: 0.9em;">成交买入价 (deal_buy_price) - 开仓用</label>
+                            <input id="repeat-conf-deal-price" type="number" step="0.2" class="form-control form-control-sm" placeholder="例如 4800.0">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveRepeatMonitorConfig()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order/Cancel Monitor Config Modal -->
+    <div class="modal fade" id="orderCancelMonitorConfigModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">报撤单监测阈值设置</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label for="order-monitor-thr" class="form-label" style="font-size: 0.9em;">报单监测阈值 (order_monitor_threshold)</label>
+                            <input id="order-monitor-thr" type="number" min="1" step="1" class="form-control form-control-sm" placeholder="例如 5">
+                        </div>
+                        <div class="col-12">
+                            <label for="cancel-monitor-thr" class="form-label" style="font-size: 0.9em;">撤单监测阈值 (cancel_monitor_threshold)</label>
+                            <input id="cancel-monitor-thr" type="number" min="1" step="1" class="form-control form-control-sm" placeholder="例如 3">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveOrderCancelMonitorConfig()">保存</button>
                 </div>
             </div>
         </div>
@@ -254,17 +351,50 @@
             dealPrice: document.getElementById('conf-deal-price'),
         };
 
+        const repeatMonitorConfigInputs = {
+            openThreshold: document.getElementById('repeat-open-thr'),
+            closeThreshold: document.getElementById('repeat-close-thr'),
+            symbol: document.getElementById('repeat-conf-symbol'),
+            safePrice: document.getElementById('repeat-conf-safe-price'),
+            dealPrice: document.getElementById('repeat-conf-deal-price'),
+        };
+
+        const orderCancelMonitorConfigInputs = {
+            orderThreshold: document.getElementById('order-monitor-thr'),
+            cancelThreshold: document.getElementById('cancel-monitor-thr'),
+        };
+
+        const volumeLimitInputs = {
+            symbol: document.getElementById('volerr-symbol'),
+            volume: document.getElementById('volerr-volume'),
+        };
+
         let thresholdModal;
+        let volumeLimitModal;
         let testConfigModal;
+        let repeatMonitorConfigModal;
+        let orderCancelMonitorConfigModal;
 
         document.addEventListener('DOMContentLoaded', function() {
             const el = document.getElementById('thresholdModal');
             if (el) {
                 thresholdModal = new bootstrap.Modal(el);
             }
+            const elVol = document.getElementById('volumeLimitModal');
+            if (elVol) {
+                volumeLimitModal = new bootstrap.Modal(elVol);
+            }
             const elTest = document.getElementById('testConfigModal');
             if (elTest) {
                 testConfigModal = new bootstrap.Modal(elTest);
+            }
+            const elRepeat = document.getElementById('repeatMonitorConfigModal');
+            if (elRepeat) {
+                repeatMonitorConfigModal = new bootstrap.Modal(elRepeat);
+            }
+            const elOrderCancel = document.getElementById('orderCancelMonitorConfigModal');
+            if (elOrderCancel) {
+                orderCancelMonitorConfigModal = new bootstrap.Modal(elOrderCancel);
             }
         });
 
@@ -467,6 +597,174 @@
                     if (data.status !== 'success') throw new Error(data.msg || '配置保存失败');
                     showToast('配置已更新', `合约=${symbol}, 价格=${safePrice}/${dealPrice}`, 'warning');
                     if (testConfigModal) testConfigModal.hide();
+                })
+                .catch(err => {
+                    showToast('配置保存失败', String(err), 'danger');
+                });
+        }
+
+        function saveAndRunTestConfig() {
+            saveTestConfig();
+        }
+
+        function loadRepeatMonitorConfigFromServer() {
+            return fetch('/api/test/config', { method: 'GET' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status !== 'success') throw new Error(data.msg || '读取配置失败');
+                    const conf = data.data || {};
+                    if (conf.repeat_open_threshold) repeatMonitorConfigInputs.openThreshold.value = conf.repeat_open_threshold;
+                    if (conf.repeat_close_threshold) repeatMonitorConfigInputs.closeThreshold.value = conf.repeat_close_threshold;
+                    if (conf.test_symbol) repeatMonitorConfigInputs.symbol.value = conf.test_symbol;
+                    if (conf.safe_buy_price) repeatMonitorConfigInputs.safePrice.value = conf.safe_buy_price;
+                    if (conf.deal_buy_price) repeatMonitorConfigInputs.dealPrice.value = conf.deal_buy_price;
+                    return conf;
+                })
+                .catch(err => {
+                    showToast('读取配置失败', String(err), 'danger');
+                });
+        }
+
+        function openRepeatMonitorConfigModal() {
+            if (repeatMonitorConfigModal) {
+                loadRepeatMonitorConfigFromServer().then(() => {
+                    repeatMonitorConfigModal.show();
+                });
+            }
+        }
+
+        function saveRepeatMonitorConfig() {
+            const openThr = safeInt(repeatMonitorConfigInputs.openThreshold.value);
+            const closeThr = safeInt(repeatMonitorConfigInputs.closeThreshold.value);
+            const symbol = repeatMonitorConfigInputs.symbol.value.trim();
+            const safePrice = parseFloat(repeatMonitorConfigInputs.safePrice.value);
+            const dealPrice = parseFloat(repeatMonitorConfigInputs.dealPrice.value);
+
+            if (!openThr || !closeThr || !symbol || isNaN(safePrice) || isNaN(dealPrice)) {
+                showToast('参数错误', '请填写有效的参数', 'danger');
+                return;
+            }
+
+            const payload = {
+                repeat_open_threshold: openThr,
+                repeat_close_threshold: closeThr,
+                test_symbol: symbol,
+                safe_buy_price: safePrice,
+                deal_buy_price: dealPrice,
+            };
+
+            fetch('/api/test/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status !== 'success') throw new Error(data.msg || '配置保存失败');
+                    showToast('配置已更新', `阈值=${openThr}/${closeThr}, 合约=${symbol}, 价格=${safePrice}/${dealPrice}`, 'warning');
+                    if (repeatMonitorConfigModal) repeatMonitorConfigModal.hide();
+                })
+                .catch(err => {
+                    showToast('配置保存失败', String(err), 'danger');
+                });
+        }
+
+        function loadOrderCancelMonitorConfigFromServer() {
+            return fetch('/api/test/config', { method: 'GET' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status !== 'success') throw new Error(data.msg || '读取配置失败');
+                    const conf = data.data || {};
+                    if (conf.order_monitor_threshold) orderCancelMonitorConfigInputs.orderThreshold.value = conf.order_monitor_threshold;
+                    if (conf.cancel_monitor_threshold) orderCancelMonitorConfigInputs.cancelThreshold.value = conf.cancel_monitor_threshold;
+                    return conf;
+                })
+                .catch(err => {
+                    showToast('读取配置失败', String(err), 'danger');
+                });
+        }
+
+        function openOrderCancelMonitorConfigModal() {
+            if (orderCancelMonitorConfigModal) {
+                loadOrderCancelMonitorConfigFromServer().then(() => {
+                    if (!orderCancelMonitorConfigInputs.orderThreshold.value) orderCancelMonitorConfigInputs.orderThreshold.value = 1;
+                    if (!orderCancelMonitorConfigInputs.cancelThreshold.value) orderCancelMonitorConfigInputs.cancelThreshold.value = 1;
+                    orderCancelMonitorConfigModal.show();
+                });
+            }
+        }
+
+        function saveOrderCancelMonitorConfig() {
+            const orderThr = safeInt(orderCancelMonitorConfigInputs.orderThreshold.value);
+            const cancelThr = safeInt(orderCancelMonitorConfigInputs.cancelThreshold.value);
+
+            if (!orderThr || !cancelThr) {
+                showToast('参数错误', '请填写有效的阈值(正整数)', 'danger');
+                return;
+            }
+
+            const payload = { order_monitor_threshold: orderThr, cancel_monitor_threshold: cancelThr };
+            fetch('/api/test/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status !== 'success') throw new Error(data.msg || '配置保存失败');
+                    showToast('配置已更新', `报单监测阈值=${orderThr}, 撤单监测阈值=${cancelThr}`, 'warning');
+                    if (orderCancelMonitorConfigModal) orderCancelMonitorConfigModal.hide();
+                })
+                .catch(err => {
+                    showToast('配置保存失败', String(err), 'danger');
+                });
+        }
+
+        function loadVolumeLimitConfigFromServer() {
+            return fetch('/api/test/config', { method: 'GET' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status !== 'success') throw new Error(data.msg || '读取配置失败');
+                    const conf = data.data || {};
+                    if (conf.test_symbol) volumeLimitInputs.symbol.value = conf.test_symbol;
+                    if (conf.volume_limit_volume) volumeLimitInputs.volume.value = conf.volume_limit_volume;
+                    return conf;
+                })
+                .catch(err => {
+                    showToast('读取配置失败', String(err), 'danger');
+                });
+        }
+
+        function openVolumeLimitModal() {
+            if (volumeLimitModal) {
+                loadVolumeLimitConfigFromServer().then(() => {
+                    if (!volumeLimitInputs.volume.value) volumeLimitInputs.volume.value = 10000;
+                    volumeLimitModal.show();
+                });
+            }
+        }
+
+        function saveAndRunVolumeLimit() {
+            const symbol = volumeLimitInputs.symbol.value.trim();
+            const volume = safeInt(volumeLimitInputs.volume.value);
+
+            if (!symbol || !volume) {
+                showToast('参数错误', '请填写有效的品种与手数(正整数)', 'danger');
+                return;
+            }
+
+            const payload = { test_symbol: symbol, volume_limit_volume: volume };
+            fetch('/api/test/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status !== 'success') throw new Error(data.msg || '配置保存失败');
+                    showToast('配置已更新', `合约=${symbol}, 手数=${volume}`, 'warning');
+                    if (volumeLimitModal) volumeLimitModal.hide();
+                    runTest('2.4.1.3');
                 })
                 .catch(err => {
                     showToast('配置保存失败', String(err), 'danger');

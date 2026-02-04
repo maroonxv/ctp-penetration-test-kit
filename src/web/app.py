@@ -249,6 +249,59 @@ def _hard_disconnect_orchestrate(case_id: str) -> tuple[bool, dict]:
         "disconnect_window_s": disconnect_window_s,
     }
 
+def _hard_disconnect_only(case_id: str) -> tuple[bool, dict]:
+    ping_timeout_s = float(os.environ.get("HARD_DISCONNECT_PING_TIMEOUT_S", "10"))
+
+    process_manager.start_worker()
+
+    status_resp = None
+    try:
+        status_resp = rpc.request("GET_STATUS", {}, timeout=2.0)
+    except Exception:
+        status_resp = None
+
+    if status_resp and status_resp.get("ok"):
+        data = status_resp.get("data") or {}
+        if data.get("busy"):
+            return False, {"reason": "busy", "status": data}
+
+    if not _wait_ping_ok(timeout_s=ping_timeout_s):
+        return False, {"reason": "ping_timeout_before_kill"}
+
+    t1 = time.time()
+    log.info(f"【{case_id}】2.2.1.1：连接成功（在线） {_now_text()}")
+
+    log.info(f"【{case_id}】2.2.1.2：连接断开 {_now_text()}")
+    process_manager.kill_worker()
+    t2 = time.time()
+
+    return True, {"t1": t1, "t2": t2}
+
+def _hard_reconnect_only(case_id: str) -> tuple[bool, dict]:
+    restart_ping_timeout_s = float(os.environ.get("HARD_DISCONNECT_RESTART_PING_TIMEOUT_S", "60"))
+
+    process_manager.start_worker()
+
+    status_resp = None
+    try:
+        status_resp = rpc.request("GET_STATUS", {}, timeout=2.0)
+    except Exception:
+        status_resp = None
+
+    if status_resp and status_resp.get("ok"):
+        data = status_resp.get("data") or {}
+        if data.get("busy"):
+            return False, {"reason": "busy", "status": data}
+
+    t3_start = time.time()
+    if not _wait_ping_ok(timeout_s=restart_ping_timeout_s):
+        return False, {"reason": "ping_timeout_after_start", "t3_start": t3_start}
+
+    t3 = time.time()
+    log.info(f"【{case_id}】2.2.1.3：重连成功 {_now_text()}")
+
+    return True, {"t3_start": t3_start, "t3": t3}
+
 def _run_2_5_1_orchestrate(case_id: str) -> tuple[bool, dict]:
     """
     编排 2.5.1 测试：
@@ -321,6 +374,26 @@ def _run_2_5_1_orchestrate(case_id: str) -> tuple[bool, dict]:
 def run_case(case_id):
     process_manager.start_worker()
     case_id = (case_id or "").strip()
+
+    if case_id == "2.2.1.2":
+        ok, data = _hard_disconnect_only(case_id)
+        return jsonify(
+            {
+                "status": "success" if ok else "error",
+                "msg": "强制断线完成" if ok else "强制断线失败",
+                "data": data,
+            }
+        ), (200 if ok else 500)
+
+    if case_id == "2.2.1.3":
+        ok, data = _hard_reconnect_only(case_id)
+        return jsonify(
+            {
+                "status": "success" if ok else "error",
+                "msg": "强制重连完成" if ok else "强制重连失败",
+                "data": data,
+            }
+        ), (200 if ok else 500)
     
     # 2.5.1.3: Force Exit (Kill Worker)
     if case_id == "2.5.1.3":
@@ -398,6 +471,16 @@ def set_test_config():
         payload["safe_buy_price"] = body.get("safe_buy_price")
     if "deal_buy_price" in body:
         payload["deal_buy_price"] = body.get("deal_buy_price")
+    if "repeat_open_threshold" in body:
+        payload["repeat_open_threshold"] = body.get("repeat_open_threshold")
+    if "repeat_close_threshold" in body:
+        payload["repeat_close_threshold"] = body.get("repeat_close_threshold")
+    if "volume_limit_volume" in body:
+        payload["volume_limit_volume"] = body.get("volume_limit_volume")
+    if "order_monitor_threshold" in body:
+        payload["order_monitor_threshold"] = body.get("order_monitor_threshold")
+    if "cancel_monitor_threshold" in body:
+        payload["cancel_monitor_threshold"] = body.get("cancel_monitor_threshold")
 
     resp = rpc.request("SET_TEST_CONFIG", payload, timeout=3.0)
     if not resp.get("ok"):

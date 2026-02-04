@@ -36,16 +36,14 @@ def test_2_1_1_connectivity(engine: TestEngine):
         wait_for_reaction(5, "等待账户资金回报")
         engine.log_current_account()
 
-    # 模拟断线并触发前端弹窗
-    log_info("--- 测试点: 模拟断线以触发弹窗 ---")
-    engine.disconnect()
-    log_info("【系统断线】已断开连接")
-    wait_for_reaction(2, "等待前端弹窗显示")
+    log_info("正在获取所有订单...")
+    all_orders = engine.main_engine.get_all_orders()
+    orders = list(all_orders.values()) if isinstance(all_orders, dict) else (list(all_orders) if all_orders else [])
+    log_info(f"当前订单数量: {len(orders)}")
+    for order in orders:
+        log_info(f"订单: {order}")
 
-    # 恢复连接以便后续测试
-    log_info("正在恢复连接...")
-    engine.reconnect()
-    wait_for_reaction(5, "等待重连完成")
+
 
 def test_2_1_2_1_open(engine: TestEngine):
     """
@@ -169,16 +167,8 @@ def test_2_2_1_2_disconnect(engine: TestEngine):
     """
     log_info("\n>>> [2.2.1.2] 断线模拟测试")
 
-    log_info("--- 测试点 2.2.1.2: 模拟断线（逻辑断线） ---")
-    engine.disconnect()
-    log_info("【系统断线】已检测到连接断开，正在触发预警...")
+    log_info("--- 测试点 2.2.1.2: 模拟断线（强制断线） ---")
 
-    log_info("已调用 disconnect（本工具采用逻辑断线：不物理 close，避免底层卡死）。")
-    gateway = engine.main_engine.get_gateway(engine.gateway_name)
-    if gateway:
-        log_warning("断线后网关对象仍存在（与预期不符），后续以回调/日志为准。")
-    else:
-        log_info("断线后网关对象已移除（符合逻辑断线预期）。")
 
 def test_2_2_1_3_reconnect(engine: TestEngine):
     """
@@ -186,29 +176,8 @@ def test_2_2_1_3_reconnect(engine: TestEngine):
     """
     log_info("\n>>> [2.2.1.3] 重连模拟测试")
 
-    log_info("--- 测试点 2.2.1.3: 模拟重连（逻辑重连） ---")
-    
-    # 强制重新连接
-    try:
-        engine.reconnect()
-        # 等待连接成功
-        wait_for_reaction(5, "等待重连日志 (OnFrontConnected)")
-    except Exception as e:
-        log_error(f"重连尝试失败: {e}")
+    log_info("--- 测试点 2.2.1.3: 模拟重连（强制断线后重连） ---")
 
-    # 验证重连后状态
-    # 重连后 gateway 对象可能发生变化（如果被重新创建），重新获取
-    gateway = engine.main_engine.get_gateway(engine.gateway_name)
-    if gateway:
-        log_info("重连后网关对象: 存在（真实连接状态以底层回调/日志为准）")
-    else:
-        log_error("重连后网关对象: 不存在（重连未就绪）")
-    
-    # 重连后再次检查资金
-    if gateway:
-        gateway.query_account()
-        wait_for_reaction(2)
-        engine.log_current_account()
 
 def test_2_2_2_1_order_count(engine: TestEngine):
     """
@@ -218,20 +187,39 @@ def test_2_2_2_1_order_count(engine: TestEngine):
     
     log_info(f"--- 测试点 2.2.2.1: 当前报单总数: {engine.risk_manager.order_count}")
     
-    # 发送一笔单测试计数增加
-    if engine.contract:
+    if not _check_contract(engine):
+        return
+
+    threshold = int(getattr(config, "ORDER_MONITOR_THRESHOLD", 1) or 1)
+    send_n = max(1, threshold + 1)
+
+    log_info(f"本次将发送 {send_n} 笔委托用于验证报单统计")
+    tick = float(getattr(engine.contract, "pricetick", 0) or 0)
+    step = tick if tick > 0 else 0.01
+    warned = False
+    sent_vt_orderids = []
+    for i in range(send_n):
         req = OrderRequest(
             symbol=engine.contract.symbol,
             exchange=engine.contract.exchange,
             direction=Direction.LONG,
             type=OrderType.LIMIT,
             volume=1,
-            price=config.SAFE_BUY_PRICE,
-            offset=Offset.OPEN
+            price=float(config.SAFE_BUY_PRICE) + i * step,
+            offset=Offset.OPEN,
         )
-        engine.send_order(req)
-        wait_for_reaction(1, "验证计数器更新")
-        log_info(f"更新后报单总数: {engine.risk_manager.order_count}")
+        vt_orderid = engine.send_order(req)
+        if vt_orderid:
+            sent_vt_orderids.append(vt_orderid)
+        if not warned and engine.risk_manager.order_count >= threshold:
+            current = int(engine.risk_manager.order_count)
+            log_warning(f"【阈值预警】报单笔数统计({current})达到或超过阈值({threshold})! 🚨")
+            warned = True
+
+    engine.last_order_monitor_vt_orderids = sent_vt_orderids
+
+    wait_for_reaction(2, "验证计数器更新")
+    log_info(f"更新后报单总数: {engine.risk_manager.order_count}")
 
 def test_2_2_2_2_cancel_count(engine: TestEngine):
     """
@@ -241,24 +229,79 @@ def test_2_2_2_2_cancel_count(engine: TestEngine):
     
     log_info(f"--- 测试点 2.2.2.2: 当前撤单总数: {engine.risk_manager.cancel_count}")
     
-    if engine.contract:
-        # 撤单
+    if not _check_contract(engine):
+        return
+
+    threshold = int(getattr(config, "CANCEL_MONITOR_THRESHOLD", 1) or 1)
+    cancel_n = max(1, threshold + 1)
+
+    log_info(f"本次将撤销 {cancel_n} 笔委托用于验证撤单统计")
+
+    wait_for_reaction(2, "等待委托进入可撤状态")
+    target_ids = list(getattr(engine, "last_order_monitor_vt_orderids", []) or [])
+    target_orders = []
+    for vt_id in target_ids:
+        o = engine.orders.get(vt_id)
+        if o and o.is_active():
+            target_orders.append(o)
+
+    if not target_orders:
         active = engine.get_all_active_orders()
-        for o in active:
-            engine.cancel_order(o.create_cancel_request())
-        wait_for_reaction(1, "验证撤单计数更新")
-        log_info(f"更新后撤单总数: {engine.risk_manager.cancel_count}")
+        target_orders = active
+
+    if not target_orders:
+        log_warning("未找到可撤委托，跳过撤单统计测试")
+        return
+
+    if len(target_orders) < cancel_n:
+        log_warning(f"可撤委托不足：期望 {cancel_n}，实际 {len(target_orders)}，将撤销全部可撤委托")
+
+    warned = False
+    for o in target_orders[:cancel_n]:
+        engine.session_order_ids.add(o.vt_orderid)
+        engine.risk_manager.register_order(o.vt_orderid)
+        engine.cancel_order(o.create_cancel_request())
+
+    wait_for_reaction(3, "验证撤单计数更新")
+    if not warned and engine.risk_manager.cancel_count >= threshold:
+        current = int(engine.risk_manager.cancel_count)
+        log_warning(f"【阈值预警】撤单笔数统计({current})达到或超过阈值({threshold})! 🚨")
+        warned = True
+    log_info(f"更新后撤单总数: {engine.risk_manager.cancel_count}")
 
 def test_2_2_3_1_repeat_open(engine: TestEngine):
     """
     2.2.3.1 重复开仓
     """
     log_info("\n>>> [2.2.3.1] 重复开仓测试")
-    if not engine.contract: return
+    if not _check_contract(engine):
+        return
 
     # 1. 重复开仓
     log_info("--- 测试点 2.2.3.1: 重复开仓 ---")
-    for i in range(3):
+    repeat_open_threshold = int(getattr(config, "REPEAT_OPEN_THRESHOLD", 2) or 2)
+    deal_count = max(1, repeat_open_threshold)
+    safe_count = 1
+
+    deal_vt_orderids = []
+    safe_vt_orderid = ""
+
+    for _ in range(deal_count):
+        req = OrderRequest(
+            symbol=engine.contract.symbol,
+            exchange=engine.contract.exchange,
+            direction=Direction.LONG,
+            type=OrderType.LIMIT,
+            volume=1,
+            price=config.DEAL_BUY_PRICE,
+            offset=Offset.OPEN,
+            reference="RepeatOpen",
+        )
+        vt_id = engine.send_order(req)
+        if vt_id:
+            deal_vt_orderids.append(vt_id)
+
+    for _ in range(safe_count):
         req = OrderRequest(
             symbol=engine.contract.symbol,
             exchange=engine.contract.exchange,
@@ -267,9 +310,17 @@ def test_2_2_3_1_repeat_open(engine: TestEngine):
             volume=1,
             price=config.SAFE_BUY_PRICE,
             offset=Offset.OPEN,
-            reference="RepeatOpen"
+            reference="RepeatOpen",
         )
-        engine.send_order(req)
+        vt_id = engine.send_order(req)
+        if vt_id and not safe_vt_orderid:
+            safe_vt_orderid = vt_id
+
+    engine.repeat_monitor_last = {
+        "deal_open_vt_orderids": deal_vt_orderids,
+        "safe_open_vt_orderid": safe_vt_orderid,
+        "vt_symbol": getattr(engine.contract, "vt_symbol", ""),
+    }
     wait_for_reaction(2, "等待重复开仓反馈")
 
 def test_2_2_3_2_repeat_close(engine: TestEngine):
@@ -277,11 +328,17 @@ def test_2_2_3_2_repeat_close(engine: TestEngine):
     2.2.3.2 重复平仓
     """
     log_info("\n>>> [2.2.3.2] 重复平仓测试")
-    if not engine.contract: return
+    if not _check_contract(engine):
+        return
 
     # 2. 重复平仓
     log_info("--- 测试点 2.2.3.2: 重复平仓 ---")
-    for i in range(3):
+    repeat_close_threshold = int(getattr(config, "REPEAT_CLOSE_THRESHOLD", 2) or 2)
+    info = getattr(engine, "repeat_monitor_last", None) or {}
+    deal_open_vt_orderids = list(info.get("deal_open_vt_orderids") or [])
+    close_count = min(max(1, repeat_close_threshold), len(deal_open_vt_orderids) or max(1, repeat_close_threshold))
+
+    for _ in range(close_count):
         req = OrderRequest(
             symbol=engine.contract.symbol,
             exchange=engine.contract.exchange,
@@ -290,7 +347,7 @@ def test_2_2_3_2_repeat_close(engine: TestEngine):
             volume=1,
             price=config.SAFE_BUY_PRICE,
             offset=Offset.CLOSE,
-            reference="RepeatClose"
+            reference="RepeatClose",
         )
         engine.send_order(req)
     wait_for_reaction(2, "等待重复平仓反馈")
@@ -300,11 +357,30 @@ def test_2_2_3_3_repeat_cancel(engine: TestEngine):
     2.2.3.3 重复撤单
     """
     log_info("\n>>> [2.2.3.3] 重复撤单测试")
-    if not engine.contract: return
+    if not _check_contract(engine):
+        return
 
     # 3. 重复撤单 (构造一个存在的订单ID进行重复撤销)
     log_info("--- 测试点 2.2.3.3: 重复撤单 ---")
-    # 先发一个单
+    info = getattr(engine, "repeat_monitor_last", None) or {}
+    safe_open_vt_orderid = str(info.get("safe_open_vt_orderid") or "").strip()
+
+    if safe_open_vt_orderid:
+        wait_for_reaction(1, "等待挂单进入可撤状态")
+        order = engine.orders.get(safe_open_vt_orderid)
+        if order and order.is_active():
+            engine.cancel_order(order.create_cancel_request())
+        else:
+            orderid = safe_open_vt_orderid.split(".")[-1]
+            req_c = CancelRequest(
+                orderid=orderid,
+                symbol=engine.contract.symbol,
+                exchange=engine.contract.exchange,
+            )
+            engine.cancel_order(req_c)
+        wait_for_reaction(2, "等待撤单反馈")
+        return
+
     req_base = OrderRequest(
         symbol=engine.contract.symbol,
         exchange=engine.contract.exchange,
@@ -312,22 +388,20 @@ def test_2_2_3_3_repeat_cancel(engine: TestEngine):
         type=OrderType.LIMIT,
         volume=1,
         price=config.SAFE_BUY_PRICE,
-        offset=Offset.OPEN
+        offset=Offset.OPEN,
     )
     vt_orderid = engine.send_order(req_base)
     wait_for_reaction(1)
-    
+
     if vt_orderid:
         orderid = vt_orderid.split(".")[-1]
         req_c = CancelRequest(
             orderid=orderid,
             symbol=engine.contract.symbol,
-            exchange=engine.contract.exchange
+            exchange=engine.contract.exchange,
         )
-        # 连续撤3次
-        for i in range(3):
-            engine.cancel_order(req_c)
-        wait_for_reaction(2, "等待重复撤单反馈")
+        engine.cancel_order(req_c)
+        wait_for_reaction(2, "等待撤单反馈")
 
 # =============================================================================
 # 2.3 阈值管理
@@ -535,17 +609,25 @@ def test_2_4_1_3_volume_error(engine: TestEngine):
 
     # 3. 数量超限
     log_info("--- 测试点 2.4.1.3: 委托数量超限 ---")
-    if engine.contract:
-        req_err_vol = OrderRequest(
-            symbol=engine.contract.symbol,
-            exchange=engine.contract.exchange,
-            direction=Direction.LONG,
-            type=OrderType.LIMIT,
-            volume=10000,
-            price=config.SAFE_BUY_PRICE,
-            offset=Offset.OPEN
-        )
-        engine.send_order(req_err_vol)
+    volume_limit = int(getattr(config, "VOLUME_LIMIT_VOLUME", 10000) or 10000)
+    symbol = str(getattr(config, "TEST_SYMBOL", "") or "").strip()
+    if not symbol and engine.contract:
+        symbol = engine.contract.symbol
+    if not symbol:
+        log_error("未设置测试合约代码，跳过测试")
+        return
+
+    exchange = engine.contract.exchange if engine.contract else Exchange.SHFE
+    req_err_vol = OrderRequest(
+        symbol=symbol,
+        exchange=exchange,
+        direction=Direction.LONG,
+        type=OrderType.LIMIT,
+        volume=max(1, volume_limit),
+        price=config.SAFE_BUY_PRICE,
+        offset=Offset.OPEN,
+    )
+    engine.send_order(req_err_vol)
     
     wait_for_reaction(2, "验证红色错误日志")
 

@@ -306,13 +306,23 @@ class WorkerController:
                     "data": {
                         "test_symbol": read_config.TEST_SYMBOL,
                         "safe_buy_price": read_config.SAFE_BUY_PRICE,
-                        "deal_buy_price": read_config.DEAL_BUY_PRICE
+                        "deal_buy_price": read_config.DEAL_BUY_PRICE,
+                        "repeat_open_threshold": getattr(read_config, "REPEAT_OPEN_THRESHOLD", 2),
+                        "repeat_close_threshold": getattr(read_config, "REPEAT_CLOSE_THRESHOLD", 2),
+                        "volume_limit_volume": getattr(read_config, "VOLUME_LIMIT_VOLUME", 10000),
+                        "order_monitor_threshold": getattr(read_config, "ORDER_MONITOR_THRESHOLD", 1),
+                        "cancel_monitor_threshold": getattr(read_config, "CANCEL_MONITOR_THRESHOLD", 1),
                     }
                 }
             if req_type == "SET_TEST_CONFIG":
                 test_symbol = payload.get("test_symbol")
                 safe_buy_price = payload.get("safe_buy_price")
                 deal_buy_price = payload.get("deal_buy_price")
+                repeat_open_threshold = payload.get("repeat_open_threshold")
+                repeat_close_threshold = payload.get("repeat_close_threshold")
+                volume_limit_volume = payload.get("volume_limit_volume")
+                order_monitor_threshold = payload.get("order_monitor_threshold")
+                cancel_monitor_threshold = payload.get("cancel_monitor_threshold")
                 
                 # Update memory
                 if test_symbol:
@@ -321,6 +331,16 @@ class WorkerController:
                     read_config.SAFE_BUY_PRICE = float(safe_buy_price)
                 if deal_buy_price:
                     read_config.DEAL_BUY_PRICE = float(deal_buy_price)
+                if repeat_open_threshold is not None and str(repeat_open_threshold).strip() != "":
+                    read_config.REPEAT_OPEN_THRESHOLD = int(repeat_open_threshold)
+                if repeat_close_threshold is not None and str(repeat_close_threshold).strip() != "":
+                    read_config.REPEAT_CLOSE_THRESHOLD = int(repeat_close_threshold)
+                if volume_limit_volume is not None and str(volume_limit_volume).strip() != "":
+                    read_config.VOLUME_LIMIT_VOLUME = int(volume_limit_volume)
+                if order_monitor_threshold is not None and str(order_monitor_threshold).strip() != "":
+                    read_config.ORDER_MONITOR_THRESHOLD = int(order_monitor_threshold)
+                if cancel_monitor_threshold is not None and str(cancel_monitor_threshold).strip() != "":
+                    read_config.CANCEL_MONITOR_THRESHOLD = int(cancel_monitor_threshold)
                     
                 # Save to file
                 data_to_save = {}
@@ -330,6 +350,16 @@ class WorkerController:
                     data_to_save["safe_buy_price"] = read_config.SAFE_BUY_PRICE
                 if deal_buy_price:
                     data_to_save["deal_buy_price"] = read_config.DEAL_BUY_PRICE
+                if repeat_open_threshold is not None and str(repeat_open_threshold).strip() != "":
+                    data_to_save["repeat_open_threshold"] = read_config.REPEAT_OPEN_THRESHOLD
+                if repeat_close_threshold is not None and str(repeat_close_threshold).strip() != "":
+                    data_to_save["repeat_close_threshold"] = read_config.REPEAT_CLOSE_THRESHOLD
+                if volume_limit_volume is not None and str(volume_limit_volume).strip() != "":
+                    data_to_save["volume_limit_volume"] = read_config.VOLUME_LIMIT_VOLUME
+                if order_monitor_threshold is not None and str(order_monitor_threshold).strip() != "":
+                    data_to_save["order_monitor_threshold"] = read_config.ORDER_MONITOR_THRESHOLD
+                if cancel_monitor_threshold is not None and str(cancel_monitor_threshold).strip() != "":
+                    data_to_save["cancel_monitor_threshold"] = read_config.CANCEL_MONITOR_THRESHOLD
                 
                 read_config.save_yaml_config(read_config.CONFIG_YAML_PATH, data_to_save)
                 
@@ -339,7 +369,12 @@ class WorkerController:
                     "data": {
                         "test_symbol": read_config.TEST_SYMBOL,
                         "safe_buy_price": read_config.SAFE_BUY_PRICE,
-                        "deal_buy_price": read_config.DEAL_BUY_PRICE
+                        "deal_buy_price": read_config.DEAL_BUY_PRICE,
+                        "repeat_open_threshold": getattr(read_config, "REPEAT_OPEN_THRESHOLD", 2),
+                        "repeat_close_threshold": getattr(read_config, "REPEAT_CLOSE_THRESHOLD", 2),
+                        "volume_limit_volume": getattr(read_config, "VOLUME_LIMIT_VOLUME", 10000),
+                        "order_monitor_threshold": getattr(read_config, "ORDER_MONITOR_THRESHOLD", 1),
+                        "cancel_monitor_threshold": getattr(read_config, "CANCEL_MONITOR_THRESHOLD", 1),
                     }
                 }
             if req_type == "SET_THRESHOLDS":

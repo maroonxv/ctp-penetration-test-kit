@@ -5,6 +5,7 @@ from vnpy.event import EventEngine, Event
 from vnpy.trader.engine import MainEngine
 from vnpy.trader.event import EVENT_LOG, EVENT_CONTRACT, EVENT_ORDER, EVENT_TRADE, EVENT_POSITION, EVENT_ACCOUNT
 from vnpy.trader.object import OrderRequest, CancelRequest, SubscribeRequest, ContractData, OrderData, TradeData, LogData, AccountData
+from vnpy.trader.constant import Status
 from vnpy_ctptest import CtptestGateway
 
 from src import read_config as config
@@ -88,12 +89,17 @@ class TestEngine:
         if self.risk_manager.check_order(req):
             gateway = self.main_engine.get_gateway(self.gateway_name)
             if gateway:
-                vt_orderid = gateway.send_order(req)
+                returned_id = gateway.send_order(req)
+                vt_orderid = str(returned_id or "").strip()
+                if vt_orderid and "." not in vt_orderid:
+                    vt_orderid = f"{self.gateway_name}.{vt_orderid}"
+
                 log_info(f"【发单】{req.symbol} {req.direction.value} Price:{req.price} -> ID:{vt_orderid}")
                 
                 # 在风控管理器中注册订单以进行会话追踪
-                self.risk_manager.register_order(vt_orderid)
-                self.session_order_ids.add(vt_orderid)
+                if vt_orderid:
+                    self.risk_manager.register_order(vt_orderid)
+                    self.session_order_ids.add(vt_orderid)
                 
                 return vt_orderid
         else:
@@ -149,9 +155,9 @@ class TestEngine:
         # on_order_submitted -> 打印日志
         # on_order_cancelled -> count++ 并打印日志
         
-        self.risk_manager.on_order_submitted(order) 
-        if order.status.value == "已撤销" or order.status.value == "Cancelled":
-             self.risk_manager.on_order_cancelled(order)
+        self.risk_manager.on_order_submitted(order)
+        if order.status == Status.CANCELLED:
+            self.risk_manager.on_order_cancelled(order)
 
     def on_trade(self, event: Event):
         trade: TradeData = event.data
