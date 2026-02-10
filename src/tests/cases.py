@@ -179,96 +179,6 @@ def test_2_2_1_3_reconnect(engine: TestEngine):
     log_info("--- 测试点 2.2.1.3: 模拟重连（强制断线后重连） ---")
 
 
-def test_2_2_2_1_order_count(engine: TestEngine):
-    """
-    2.2.2.1 报单统计
-    """
-    log_info("\n>>> [2.2.2.1] 报单统计测试")
-    
-    log_info(f"--- 测试点 2.2.2.1: 当前报单总数: {engine.risk_manager.order_count}")
-    
-    if not _check_contract(engine):
-        return
-
-    threshold = int(getattr(config, "ORDER_MONITOR_THRESHOLD", 1) or 1)
-    send_n = max(1, threshold + 1)
-
-    log_info(f"本次将发送 {send_n} 笔委托用于验证报单统计")
-    tick = float(getattr(engine.contract, "pricetick", 0) or 0)
-    step = tick if tick > 0 else 0.01
-    warned = False
-    sent_vt_orderids = []
-    for i in range(send_n):
-        req = OrderRequest(
-            symbol=engine.contract.symbol,
-            exchange=engine.contract.exchange,
-            direction=Direction.LONG,
-            type=OrderType.LIMIT,
-            volume=1,
-            price=float(config.SAFE_BUY_PRICE) + i * step,
-            offset=Offset.OPEN,
-        )
-        vt_orderid = engine.send_order(req)
-        if vt_orderid:
-            sent_vt_orderids.append(vt_orderid)
-        if not warned and engine.risk_manager.order_count >= threshold:
-            current = int(engine.risk_manager.order_count)
-            log_warning(f"【阈值预警】报单笔数统计({current})达到或超过阈值({threshold})! 🚨")
-            warned = True
-
-    engine.last_order_monitor_vt_orderids = sent_vt_orderids
-
-    wait_for_reaction(2, "验证计数器更新")
-    log_info(f"更新后报单总数: {engine.risk_manager.order_count}")
-
-def test_2_2_2_2_cancel_count(engine: TestEngine):
-    """
-    2.2.2.2 撤单统计
-    """
-    log_info("\n>>> [2.2.2.2] 撤单统计测试")
-    
-    log_info(f"--- 测试点 2.2.2.2: 当前撤单总数: {engine.risk_manager.cancel_count}")
-    
-    if not _check_contract(engine):
-        return
-
-    threshold = int(getattr(config, "CANCEL_MONITOR_THRESHOLD", 1) or 1)
-    cancel_n = max(1, threshold + 1)
-
-    log_info(f"本次将撤销 {cancel_n} 笔委托用于验证撤单统计")
-
-    wait_for_reaction(2, "等待委托进入可撤状态")
-    target_ids = list(getattr(engine, "last_order_monitor_vt_orderids", []) or [])
-    target_orders = []
-    for vt_id in target_ids:
-        o = engine.orders.get(vt_id)
-        if o and o.is_active():
-            target_orders.append(o)
-
-    if not target_orders:
-        active = engine.get_all_active_orders()
-        target_orders = active
-
-    if not target_orders:
-        log_warning("未找到可撤委托，跳过撤单统计测试")
-        return
-
-    if len(target_orders) < cancel_n:
-        log_warning(f"可撤委托不足：期望 {cancel_n}，实际 {len(target_orders)}，将撤销全部可撤委托")
-
-    warned = False
-    for o in target_orders[:cancel_n]:
-        engine.session_order_ids.add(o.vt_orderid)
-        engine.risk_manager.register_order(o.vt_orderid)
-        engine.cancel_order(o.create_cancel_request())
-
-    wait_for_reaction(3, "验证撤单计数更新")
-    if not warned and engine.risk_manager.cancel_count >= threshold:
-        current = int(engine.risk_manager.cancel_count)
-        log_warning(f"【阈值预警】撤单笔数统计({current})达到或超过阈值({threshold})! 🚨")
-        warned = True
-    log_info(f"更新后撤单总数: {engine.risk_manager.cancel_count}")
-
 def test_2_2_3_1_repeat_open(engine: TestEngine):
     """
     2.2.3.1 重复开仓
@@ -409,10 +319,13 @@ def test_2_2_3_3_repeat_cancel(engine: TestEngine):
 
 def test_2_3_1_1_order_threshold(engine: TestEngine):
     """
-    2.3.1.1 报单笔数阈值测试
-    覆盖: 2.3.1.1 设置, 2.3.1.2 预警
+    2.3.1.1 报单笔数阈值测试（含统计验证）
+    覆盖: 
+    - 2.2.2.1 报单统计
+    - 2.3.1.1 阈值设置
+    - 2.3.1.2 阈值预警
     """
-    log_info("\n>>> [2.3.1.1] 报单阈值测试")
+    log_info("\n>>> [2.3.1.1] 报单阈值与统计测试")
     
     rm = engine.risk_manager
     thresholds = {}
@@ -423,7 +336,13 @@ def test_2_3_1_1_order_threshold(engine: TestEngine):
 
     max_order_count = int(thresholds.get("max_order_count", getattr(rm, "max_order_count", 0)) or 0)
     log_info(f"当前报单阈值: {max_order_count}")
+    
+    # 记录初始计数
+    initial_count = rm.order_count
+    log_info(f"初始报单总数: {initial_count}")
+    
     rm.reset_counters()
+    log_info("已重置计数器")
 
     if not engine.contract:
         log_error("未获取到合约信息，跳过阈值触发测试")
@@ -432,11 +351,12 @@ def test_2_3_1_1_order_threshold(engine: TestEngine):
     max_actions = 10
     sent_vt_orderids = []
 
-    # 2.3.1.1 / 2.3.1.2
     if max_order_count > 0:
         send_n = min(max_actions, max_order_count + 1)
-        log_info(f"--- 触发报单总数预警 (阈值={max_order_count}, 本次发单={send_n}) ---")
-        for _ in range(send_n):
+        log_info(f"--- 发送 {send_n} 笔委托验证统计与阈值 (阈值={max_order_count}) ---")
+        
+        warned = False
+        for i in range(send_n):
             req = OrderRequest(
                 symbol=engine.contract.symbol,
                 exchange=engine.contract.exchange,
@@ -449,19 +369,48 @@ def test_2_3_1_1_order_threshold(engine: TestEngine):
             vt_id = engine.send_order(req)
             if vt_id:
                 sent_vt_orderids.append(vt_id)
-        wait_for_reaction(2, "检查是否出现报单阈值预警")
+            
+            # 验证计数准确性
+            expected_count = i + 1
+            actual_count = rm.order_count
+            if actual_count != expected_count:
+                log_warning(f"计数异常: 期望={expected_count}, 实际={actual_count}")
+            
+            # 检查阈值预警
+            if not warned and actual_count >= max_order_count:
+                log_warning(f"【阈值预警】报单笔数({actual_count})达到或超过阈值({max_order_count})! 🚨")
+                warned = True
+        
+        wait_for_reaction(2, "检查报单统计与阈值预警")
+        
+        # 最终验证
+        final_count = rm.order_count
+        log_info(f"最终报单总数: {final_count} (期望: {send_n})")
+        
+        if final_count != send_n:
+            log_error(f"报单统计不准确: 期望={send_n}, 实际={final_count}")
+        else:
+            log_info("✓ 报单统计准确")
+        
+        if warned:
+            log_info("✓ 阈值预警已触发")
+        else:
+            log_warning("未触发阈值预警（可能阈值设置过高）")
     else:
-        log_warning("报单阈值未启用(<=0)，跳过 2.3.1.1/2.3.1.2")
+        log_warning("报单阈值未启用(<=0)，跳过测试")
     
-    # 保存 sent_vt_orderids 到 engine 供撤单测试使用 (如果需要)
+    # 保存 sent_vt_orderids 供后续测试使用
     engine.last_sent_orders = sent_vt_orderids
 
 def test_2_3_1_3_cancel_threshold(engine: TestEngine):
     """
-    2.3.1.3 撤单笔数阈值测试
-    覆盖: 2.3.1.3 设置, 2.3.1.4 预警
+    2.3.1.3 撤单笔数阈值测试（含统计验证）
+    覆盖:
+    - 2.2.2.2 撤单统计
+    - 2.3.1.3 阈值设置
+    - 2.3.1.4 阈值预警
     """
-    log_info("\n>>> [2.3.1.3] 撤单阈值测试")
+    log_info("\n>>> [2.3.1.3] 撤单阈值与统计测试")
     
     rm = engine.risk_manager
     thresholds = {}
@@ -473,9 +422,9 @@ def test_2_3_1_3_cancel_threshold(engine: TestEngine):
     max_cancel_count = int(thresholds.get("max_cancel_count", getattr(rm, "max_cancel_count", 0)) or 0)
     log_info(f"当前撤单阈值: {max_cancel_count}")
     
-    # 不重置计数器? 为了保持连贯性? 
-    # 如果用户单独跑这个测试，之前的 order_count 可能为0，导致无法撤单?
-    # 我们需要先发单再撤单。
+    # 记录初始计数
+    initial_count = rm.cancel_count
+    log_info(f"初始撤单总数: {initial_count}")
     
     max_actions = 10
     sent_vt_orderids = getattr(engine, "last_sent_orders", [])
@@ -498,7 +447,6 @@ def test_2_3_1_3_cancel_threshold(engine: TestEngine):
             if vt_id: sent_vt_orderids.append(vt_id)
         wait_for_reaction(2)
 
-    # 2.3.1.3 / 2.3.1.4
     if max_cancel_count > 0:
         all_active = engine.get_all_active_orders()
         # 优先撤销之前发的
@@ -508,17 +456,41 @@ def test_2_3_1_3_cancel_threshold(engine: TestEngine):
             target_orders = all_active
         
         need_cancel = min(max_actions, max_cancel_count + 1)
-        log_info(f"--- 触发撤单总数预警 (阈值={max_cancel_count}, 计划撤单={need_cancel}, 可撤={len(target_orders)}) ---")
+        log_info(f"--- 撤销 {need_cancel} 笔委托验证统计与阈值 (阈值={max_cancel_count}, 可撤={len(target_orders)}) ---")
         
+        warned = False
+        cancel_start_count = rm.cancel_count
         count = 0
         for o in target_orders:
             engine.cancel_order(o.create_cancel_request())
             count += 1
+            
+            # 检查阈值预警
+            if not warned and rm.cancel_count >= max_cancel_count:
+                log_warning(f"【阈值预警】撤单笔数({rm.cancel_count})达到或超过阈值({max_cancel_count})! 🚨")
+                warned = True
+            
             if count >= need_cancel:
                 break
-        wait_for_reaction(2, "检查是否出现撤单阈值预警")
+        
+        wait_for_reaction(2, "检查撤单统计与阈值预警")
+        
+        # 最终验证
+        final_count = rm.cancel_count
+        expected_final = cancel_start_count + count
+        log_info(f"最终撤单总数: {final_count} (期望: {expected_final})")
+        
+        if final_count != expected_final:
+            log_warning(f"撤单统计可能不准确: 期望={expected_final}, 实际={final_count} (异步延迟可能导致差异)")
+        else:
+            log_info("✓ 撤单统计准确")
+        
+        if warned:
+            log_info("✓ 阈值预警已触发")
+        else:
+            log_warning("未触发阈值预警（可能阈值设置过高）")
     else:
-        log_warning("撤单阈值未启用(<=0)，跳过 2.3.1.3/2.3.1.4")
+        log_warning("撤单阈值未启用(<=0)，跳过测试")
 
 def test_2_3_1_5_repeat_threshold(engine: TestEngine):
     """

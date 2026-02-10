@@ -275,13 +275,12 @@ class WorkerController:
             "2.2.1.1": cases.test_2_2_1_1_connect_status,
             "2.2.1.2": cases.test_2_2_1_2_disconnect,
             "2.2.1.3": cases.test_2_2_1_3_reconnect,
-            "2.2.2.1": cases.test_2_2_2_1_order_count,
-            "2.2.2.2": cases.test_2_2_2_2_cancel_count,
+            # 2.2.2.1 和 2.2.2.2 已合并到 2.3.1.1 和 2.3.1.3
             "2.2.3.1": cases.test_2_2_3_1_repeat_open,
             "2.2.3.2": cases.test_2_2_3_2_repeat_close,
             "2.2.3.3": cases.test_2_2_3_3_repeat_cancel,
-            "2.3.1.1": cases.test_2_3_1_1_order_threshold,
-            "2.3.1.3": cases.test_2_3_1_3_cancel_threshold,
+            "2.3.1.1": cases.test_2_3_1_1_order_threshold,  # 包含原 2.2.2.1 报单统计
+            "2.3.1.3": cases.test_2_3_1_3_cancel_threshold, # 包含原 2.2.2.2 撤单统计
             "2.3.1.5": cases.test_2_3_1_5_repeat_threshold,
             "2.4.1.1": cases.test_2_4_1_1_code_error,
             "2.4.1.2": cases.test_2_4_1_2_price_error,

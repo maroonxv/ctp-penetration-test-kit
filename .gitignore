@@ -8,3 +8,5 @@ terminal_info.dat
 .kiro/
 .pytest_cache/
 __pycache__
+
+.vscode/
