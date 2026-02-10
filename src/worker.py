@@ -1,24 +1,35 @@
 import os
 import sys
 
-# 注入本地库路径，确保 vnpy_ctptest 的 C 扩展能正确加载
+# 注入本地库路径，确保修改版 vnpy/vnpy_ctp/vnpy_ctptest 优先于 pip 安装版本
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-LIB_CTPTEST_PATH = os.path.join(PROJECT_ROOT, "lib", "vnpy_ctptest")
+LIB_DIR = os.path.join(PROJECT_ROOT, "lib")
+for _subdir in ("vnpy", "vnpy_ctp", "vnpy_ctptest"):
+    _p = os.path.join(LIB_DIR, _subdir)
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+LIB_CTPTEST_PATH = os.path.join(LIB_DIR, "vnpy_ctptest")
 if LIB_CTPTEST_PATH not in sys.path:
     sys.path.insert(0, LIB_CTPTEST_PATH)
 
+# 同样处理 vnpy_ctp 的 DLL 依赖
+LIB_CTP_PATH = os.path.join(LIB_DIR, "vnpy_ctp")
+
 # 处理 Windows 下的 DLL 依赖加载问题
 DLL_PATH = os.path.join(LIB_CTPTEST_PATH, "vnpy_ctptest", "api")
+DLL_PATH_CTP = os.path.join(LIB_CTP_PATH, "vnpy_ctp", "api")
 if os.name == "nt":
     if hasattr(os, "add_dll_directory"):
-        try:
-            os.add_dll_directory(DLL_PATH)
-        except Exception:
-            pass
-    os.environ["PATH"] = DLL_PATH + os.pathsep + os.environ["PATH"]
+        for dp in (DLL_PATH, DLL_PATH_CTP):
+            try:
+                os.add_dll_directory(dp)
+            except Exception:
+                pass
+    os.environ["PATH"] = DLL_PATH + os.pathsep + DLL_PATH_CTP + os.pathsep + os.environ["PATH"]
 
 import time
 import queue

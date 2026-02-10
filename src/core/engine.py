@@ -1,6 +1,7 @@
+import src.path_setup  # noqa: F401 — must be first to override pip vnpy
 import threading
 import time
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Callable
 from vnpy.event import EventEngine, Event
 from vnpy.trader.engine import MainEngine
 from vnpy.trader.event import EVENT_LOG, EVENT_CONTRACT, EVENT_ORDER, EVENT_TRADE, EVENT_POSITION, EVENT_ACCOUNT
@@ -37,6 +38,10 @@ class TestEngine:
         self.last_account_data = None  # (balance, available)
         self.account: Optional[AccountData] = None # 缓存最新的账户信息
         self.session_order_ids = set() # 记录本次会话发出的订单ID
+        
+        # 错误码处理
+        self.rejected_orders: Dict[str, OrderData] = {}
+        self._on_reject_callbacks: List[Callable] = []
         
         # 事件钩子
         self.event_engine.register(EVENT_LOG, self.on_log)
@@ -143,6 +148,12 @@ class TestEngine:
         if order.status == "AllTraded" or order.status == "PartTraded":
             pass # 在 trade 中处理
         
+        # === 新增：错误码处理 ===
+        try:
+            self._process_rejection(order)
+        except Exception as e:
+            log_error(f"错误码处理异常: {e}")
+        
         # 更新风控管理器
         # 我们需要检测“已提交”（刚发送）与“已撤销”
         # 因为 on_order 会在状态变更时触发。
@@ -192,6 +203,69 @@ class TestEngine:
 
     def get_all_active_orders(self) -> List[OrderData]:
         return [o for o in self.orders.values() if o.is_active()]
+
+    def _process_rejection(self, order: OrderData):
+        """
+        处理被拒绝的订单，执行日志记录、存储、风控通知和事件发射。
+        """
+        reject_code = getattr(order, 'reject_code', None)
+        status_msg = getattr(order, 'status_msg', '') or ''
+        
+        # 条件1: 有明确的 reject_code
+        # 条件2: 状态为 REJECTED
+        has_reject = reject_code is not None
+        is_rejected_status = order.status == Status.REJECTED
+        
+        if not has_reject and not is_rejected_status:
+            # 对于非拒绝订单，如果 status_msg 非空且包含有用信息，记录诊断日志
+            if status_msg and order.status == Status.CANCELLED:
+                log_info(f"【委托状态】{order.vt_orderid} 已撤销, StatusMsg: {status_msg}")
+            return
+        
+        reject_reason = getattr(order, 'reject_reason', '') or ''
+        
+        # 1. 日志记录
+        log_warning(
+            f"【CTP拒绝】{order.vt_orderid} "
+            f"错误码:{reject_code} 原因:{reject_reason} "
+            f"合约:{order.symbol} 方向:{order.direction.value} "
+            f"价格:{order.price} 数量:{order.volume}"
+        )
+        
+        # 2. 存储
+        self.rejected_orders[order.vt_orderid] = order
+        
+        # 3. 风控通知
+        self.risk_manager.on_order_rejected(order)
+        
+        # 4. 事件通知
+        event_payload = {
+            "vt_orderid": order.vt_orderid,
+            "reject_code": reject_code,
+            "reject_reason": reject_reason,
+            "status_msg": status_msg,
+            "symbol": order.symbol,
+            "direction": order.direction.value if order.direction else "",
+            "price": order.price,
+            "volume": order.volume,
+        }
+        for cb in self._on_reject_callbacks:
+            try:
+                cb(event_payload)
+            except Exception as e:
+                log_error(f"错误事件回调异常: {e}")
+
+    def get_rejected_orders(self) -> List[OrderData]:
+        """
+        获取所有被拒绝的订单。
+        """
+        return list(self.rejected_orders.values())
+
+    def register_reject_callback(self, callback: Callable[[dict], None]):
+        """
+        注册错误事件回调函数。
+        """
+        self._on_reject_callbacks.append(callback)
 
     def close(self):
         self.main_engine.close()

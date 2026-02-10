@@ -4,3 +4,7 @@ log/
 __pycache__/
 temp/
 terminal_info.dat
+
+.kiro/
+.pytest_cache/
+__pycache__

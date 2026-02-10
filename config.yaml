@@ -1,5 +1,5 @@
 cancel_monitor_threshold: 3
-deal_buy_price: 4660.0
+deal_buy_price: 102000
 order_monitor_threshold: 3
 repeat_close_threshold: 2
 repeat_open_threshold: 2
@@ -9,6 +9,6 @@ risk_thresholds:
   max_cancel_count: 5
   max_order_count: 5
   max_symbol_order_count: 3
-safe_buy_price: 4630.0
-test_symbol: IF2603
+safe_buy_price: 101930
+test_symbol: cu2603
 volume_limit_volume: 10000

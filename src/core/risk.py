@@ -20,6 +20,7 @@ class TestRiskManager:
         self.cancel_count = 0
         self.repeat_order_count = 0
         self.repeat_cancel_count = 0
+        self.rejection_count = 0
         
         # 阈值
         self.max_order_count = config.RISK_THRESHOLDS.get("max_order_count", 5)
@@ -164,6 +165,14 @@ class TestRiskManager:
         if cancel_threshold > 0 and self.cancel_count >= cancel_threshold:
             log_warning(f"【阈值预警】撤单总数({self.cancel_count})达到或超过阈值({cancel_threshold})! 🚨")
             self._warned_cancel_threshold = True
+
+    def on_order_rejected(self, order: OrderData) -> None:
+        """
+        订单被CTP拒绝时的回调。
+        """
+        self.rejection_count += 1
+        reject_code = getattr(order, 'reject_code', None)
+        log_info(f"【风控监测】收到CTP拒绝, 累计拒绝次数: {self.rejection_count}, 错误码: {reject_code}")
             
     def emergency_stop(self):
         """
@@ -203,6 +212,7 @@ class TestRiskManager:
             "repeat_order_count": int(self.repeat_order_count),
             "repeat_cancel_count": int(self.repeat_cancel_count),
             "repeat_total": int(self._repeat_total()),
+            "rejection_count": int(self.rejection_count),
         }
 
     def reset_counters(self):
@@ -213,6 +223,7 @@ class TestRiskManager:
         self.cancel_count = 0
         self.repeat_order_count = 0
         self.repeat_cancel_count = 0
+        self.rejection_count = 0
         self.last_log_order_count = -1
         self.last_log_cancel_count = -1
         self.order_signature_count.clear()

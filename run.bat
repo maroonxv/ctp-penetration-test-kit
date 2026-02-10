@@ -1,5 +1,5 @@
 @echo off
-set PYTHONPATH=%cd%
+set PYTHONPATH=%cd%\lib\vnpy;%cd%\lib\vnpy_ctp;%cd%\lib\vnpy_ctptest;%cd%
 echo Starting CTP Penetration Test Web Console...
 
 REM Start Web Server in background
