@@ -301,7 +301,15 @@ class CtpMdApi(MdApi):
     def onFrontDisconnected(self, reason: int) -> None:
         """服务器连接断开回报"""
         self.login_status = False
-        self.gateway.write_log(f"行情服务器连接断开，原因{reason}")
+        reason_map = {
+            0x1001: "网络读失败",
+            0x1002: "网络写失败",
+            0x2001: "接收心跳超时",
+            0x2002: "发送心跳失败",
+            0x2003: "收到错误报文",
+        }
+        reason_text = reason_map.get(reason, "未知原因")
+        self.gateway.write_log(f"行情服务器连接断开，原因码: {reason} ({reason_text})")
 
     def onRspUserLogin(self, data: dict, error: dict, reqid: int, last: bool) -> None:
         """用户登录请求回报"""
@@ -487,7 +495,15 @@ class CtpTdApi(TdApi):
     def onFrontDisconnected(self, reason: int) -> None:
         """服务器连接断开回报"""
         self.login_status = False
-        self.gateway.write_log(f"交易服务器连接断开，原因{reason}")
+        reason_map = {
+            0x1001: "网络读失败",
+            0x1002: "网络写失败",
+            0x2001: "接收心跳超时",
+            0x2002: "发送心跳失败",
+            0x2003: "收到错误报文",
+        }
+        reason_text = reason_map.get(reason, "未知原因")
+        self.gateway.write_log(f"交易服务器连接断开，原因码: {reason} ({reason_text})")
 
     def onRspAuthenticate(self, data: dict, error: dict, reqid: int, last: bool) -> None:
         """用户授权验证回报"""
