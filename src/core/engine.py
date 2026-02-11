@@ -9,10 +9,10 @@ from vnpy.trader.object import OrderRequest, CancelRequest, SubscribeRequest, Co
 from vnpy.trader.constant import Status
 from vnpy_ctptest import CtptestGateway
 
-from src import read_config as config
-from src.logger import log_info, log_error, log_warning
+from src.config import reader as config
+from src.logging import log_info, log_error, log_warning
 from src.core.risk import TestRiskManager
-from src.utils import wait_for_reaction
+from src.ctp_cases.helpers import wait_for_reaction
 
 class TestEngine:
     """

@@ -1,9 +1,9 @@
 import time
 import traceback
-from src import read_config as config
+from src.config import reader as config
 from src.core.engine import TestEngine
-from src.utils import wait_for_reaction, clean_environment
-from src.logger import log_info, log_error, log_warning
+from src.ctp_cases.helpers import wait_for_reaction, clean_environment
+from src.logging import log_info, log_error, log_warning
 from vnpy.trader.object import OrderRequest, CancelRequest
 from vnpy.trader.constant import Direction, OrderType, Offset, Exchange
 

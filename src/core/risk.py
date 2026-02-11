@@ -1,6 +1,6 @@
 from vnpy.trader.object import OrderRequest, CancelRequest, OrderData
-from src.logger import log_info, log_warning, log_error
-from src import read_config as config
+from src.logging import log_info, log_warning, log_error
+from src.config import reader as config
  
 class TestRiskManager:
     """

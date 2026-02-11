@@ -2,15 +2,10 @@ import os
 import sys
 
 # 注入本地库路径，确保修改版 vnpy/vnpy_ctp/vnpy_ctptest 优先于 pip 安装版本
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+import src.path_setup  # noqa: F401  — 路径注入唯一来源
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LIB_DIR = os.path.join(PROJECT_ROOT, "lib")
-for _subdir in ("vnpy", "vnpy_ctp", "vnpy_ctptest"):
-    _p = os.path.join(LIB_DIR, _subdir)
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
 
 LIB_CTPTEST_PATH = os.path.join(LIB_DIR, "vnpy_ctptest")
 if LIB_CTPTEST_PATH not in sys.path:
@@ -40,70 +35,16 @@ from concurrent.futures import ThreadPoolExecutor
 
 from src.core.engine import TestEngine
 from src.core.server import CommandServer
-from src.tests import cases
-from src import read_config
-from src.logger import setup_logger, log_info, log_error
+from src.ctp_cases import cases
+from src.config import reader as read_config
+from src.logging import setup_logger, log_info, log_error
+from src.logging.handlers import QueueLogHandler
 
 try:
     import socketio as socketio_client
 except Exception:
     socketio_client = None
 
-
-
-
-def _color_for(levelno: int, msg: str) -> str:
-    if levelno >= logging.ERROR:
-        return "#ff4d4d"
-    if levelno >= logging.WARNING:
-        return "#ffbf00"
-    if "OnRtn" in msg or "OnRsp" in msg or "收到" in msg or "回调" in msg:
-        return "#00ccff"
-    if "【" in msg:
-        return "#00ff00"
-    return "#cccccc"
-
-
-class _SocketLogHandler(logging.Handler):
-    def __init__(self, out_queue: queue.Queue):
-        super().__init__()
-        self.out_queue = out_queue
-
-    def emit(self, record):
-        try:
-            msg = self.format(record)
-            if "GET /" in msg or "POST /" in msg or "HTTP/1.1" in msg or "socket.io" in msg:
-                return
-            self.out_queue.put(
-                (
-                    "new_log",
-                    {"message": msg, "color": _color_for(record.levelno, msg)},
-                )
-            )
-        except Exception:
-            self.handleError(record)
-
-
-class _StreamToQueue:
-    def __init__(self, original_stream, out_queue: queue.Queue):
-        self.original_stream = original_stream
-        self.out_queue = out_queue
-
-    def write(self, message):
-        self.original_stream.write(message)
-        self.original_stream.flush()
-
-        text = str(message)
-        if not text.strip():
-            return
-        if text.lstrip().startswith(("[INFO]", "[WARNING]", "[ERROR]")):
-            return
-        if "GET /" in text or "POST /" in text or "HTTP/1.1" in text or "socket.io" in text:
-            return
-        self.out_queue.put(("new_log", {"message": text.rstrip("\n"), "color": "#cccccc"}))
-
-    def flush(self):
-        self.original_stream.flush()
 
 
 class WorkerController:
@@ -126,13 +67,10 @@ class WorkerController:
             self.sio = socketio_client.Client(reconnection=True, reconnection_attempts=0, reconnection_delay=1)
 
         root_logger = logging.getLogger()
-        if not any(isinstance(h, _SocketLogHandler) for h in root_logger.handlers):
-            handler = _SocketLogHandler(self.out_queue)
+        if not any(isinstance(h, QueueLogHandler) for h in root_logger.handlers):
+            handler = QueueLogHandler(self.out_queue)
             handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
             root_logger.addHandler(handler)
-
-        sys.stdout = _StreamToQueue(sys.stdout, self.out_queue)
-        sys.stderr = _StreamToQueue(sys.stderr, self.out_queue)
 
         self._start_background_threads()
 

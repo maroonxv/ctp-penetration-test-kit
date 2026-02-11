@@ -1,20 +1,18 @@
 import os
 import sys
 import logging
-import socket
-import json
-import uuid
 import time
-import subprocess
 
 # 确保项目根目录在 sys.path 中（当作为脚本运行时）
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session
 from flask_socketio import SocketIO
-from src.socket_handler import SocketIOHandler
-from src import read_config as config
-from src.logger import setup_logger
+from src.logging.handlers import SocketIOHandler
+from src.config import reader as config
+from src.logging import setup_logger
+from src.web.process_manager import ProcessManager
+from src.web.rpc_client import RpcClient
 import engineio
 
 # Increase max_decode_packets to prevent "Too many packets in payload" error
@@ -26,101 +24,6 @@ app.config['SECRET_KEY'] = os.urandom(24)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 setup_logger()
-
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-WORKER_ENTRY = os.path.join(PROJECT_ROOT, "src", "worker.py")
-
-
-class ProcessManager:
-    def __init__(self):
-        self.process = None
-        self.disconnect_mode = False  # 断线模式：阻止自动重启
-
-    def is_running(self) -> bool:
-        return self.process is not None and self.process.poll() is None
-
-    def start_worker(self, force: bool = False) -> bool:
-        """启动 Worker 进程
-        
-        Args:
-            force: 强制启动，忽略断线模式
-        """
-        # 断线模式下不自动启动（除非强制）
-        if self.disconnect_mode and not force:
-            return False
-            
-        if self.is_running():
-            return True
-
-        env = os.environ.copy()
-        env.setdefault("PYTHONPATH", PROJECT_ROOT)
-
-        self.process = subprocess.Popen(
-            [sys.executable, WORKER_ENTRY],
-            cwd=PROJECT_ROOT,
-            env=env,
-        )
-        return True
-
-    def kill_worker(self) -> bool:
-        if not self.process:
-            return True
-        try:
-            self.process.kill()
-        except Exception:
-            pass
-        return True
-
-    def restart_worker(self) -> bool:
-        self.disconnect_mode = False  # 重启时退出断线模式
-        self.kill_worker()
-        time.sleep(0.2)
-        return self.start_worker(force=True)
-    
-    def enter_disconnect_mode(self):
-        """进入断线模式，阻止自动重启"""
-        self.disconnect_mode = True
-    
-    def exit_disconnect_mode(self):
-        """退出断线模式"""
-        self.disconnect_mode = False
-
-
-class RpcClient:
-    def __init__(self, host: str, port: int):
-        self.host = host
-        self.port = port
-
-    def request(self, req_type: str, payload: dict | None = None, timeout: float = 5.0) -> dict:
-        req = {
-            "request_id": str(uuid.uuid4()),
-            "type": req_type,
-            "payload": payload or {},
-            "timeout_ms": int(timeout * 1000),
-        }
-
-        data = (json.dumps(req, ensure_ascii=False) + "\n").encode("utf-8")
-
-        with socket.create_connection((self.host, self.port), timeout=timeout) as s:
-            s.sendall(data)
-            s.shutdown(socket.SHUT_WR)
-
-            raw = b""
-            s.settimeout(timeout)
-            while b"\n" not in raw and len(raw) < 65536:
-                chunk = s.recv(4096)
-                if not chunk:
-                    break
-                raw += chunk
-
-        line = raw.split(b"\n", 1)[0].decode("utf-8", errors="replace").strip()
-        if not line:
-            return {"ok": False, "error": "empty_response"}
-        try:
-            return json.loads(line)
-        except Exception:
-            return {"ok": False, "error": "invalid_response", "raw": line}
-
 
 process_manager = ProcessManager()
 rpc = RpcClient("127.0.0.1", 9999)
@@ -222,75 +125,6 @@ def _wait_ping_ok(timeout_s: float) -> bool:
         time.sleep(0.2)
     return False
 
-def _hard_disconnect_orchestrate(case_id: str) -> tuple[bool, dict]:
-    disconnect_window_s = float(os.environ.get("HARD_DISCONNECT_WINDOW_S", "10"))
-    restart_ping_timeout_s = float(os.environ.get("HARD_DISCONNECT_RESTART_PING_TIMEOUT_S", "60"))
-    ping_timeout_s = float(os.environ.get("HARD_DISCONNECT_PING_TIMEOUT_S", "10"))
-
-    log.info(f"【{case_id}】>>> 断线+重连 完整编排测试")
-    log.info(f"【{case_id}】流程: 确认在线(T1) → 强制断线(T2) → 等待{disconnect_window_s}s → 重连(T3)")
-
-    # 退出断线模式（如果之前处于断线模式）
-    process_manager.exit_disconnect_mode()
-
-    # 1. 确保 Worker 在线
-    log.info(f"【{case_id}】步骤1: 确认 Worker 进程在线...")
-    process_manager.start_worker(force=True)
-
-    status_resp = None
-    try:
-        status_resp = rpc.request("GET_STATUS", {}, timeout=2.0)
-    except Exception:
-        status_resp = None
-
-    if status_resp and status_resp.get("ok"):
-        data = status_resp.get("data") or {}
-        if data.get("busy"):
-            log.warning(f"【{case_id}】Worker 正忙，无法执行测试")
-            return False, {"reason": "busy", "status": data}
-
-    log.info(f"【{case_id}】步骤2: Ping Worker 确认 CTP 连接正常 (超时={ping_timeout_s}s)...")
-    if not _wait_ping_ok(timeout_s=ping_timeout_s):
-        log.error(f"【{case_id}】Ping 超时，Worker 可能未就绪")
-        return False, {"reason": "ping_timeout_before_kill"}
-
-    t1 = time.time()
-    log.info(f"【{case_id}】✓ T1 连接确认: Worker 在线，CTP 会话活跃 ({_now_text()})")
-
-    # 2. 执行强制断线
-    log.info(f"【{case_id}】步骤3: 执行强制断线 — kill Worker 进程...")
-    process_manager.kill_worker()
-    t2 = time.time()
-    elapsed_ms = int((t2 - t1) * 1000)
-    log.info(f"【{case_id}】✓ T2 断线完成: Worker 进程已终止 ({_now_text()})，耗时 {elapsed_ms}ms")
-
-    # 3. 等待断线窗口
-    log.info(f"【{case_id}】步骤4: 等待断线窗口 {disconnect_window_s}s，让 CTP 前置检测到会话断开...")
-    time.sleep(max(0.0, disconnect_window_s))
-
-    # 4. 重启 Worker
-    log.info(f"【{case_id}】步骤5: 重启 Worker 进程，开始重连...")
-    process_manager.start_worker(force=True)
-    t3_start = time.time()
-
-    log.info(f"【{case_id}】等待 Worker 完成 CTP 重连 (超时={restart_ping_timeout_s}s)...")
-    if not _wait_ping_ok(timeout_s=restart_ping_timeout_s):
-        elapsed = round(time.time() - t3_start, 1)
-        log.error(f"【{case_id}】Ping 超时 ({elapsed}s)，Worker 重连可能失败")
-        return False, {"reason": "ping_timeout_after_restart", "t1": t1, "t2": t2, "t3_start": t3_start}
-
-    t3 = time.time()
-    elapsed = round(t3 - t3_start, 1)
-    log.info(f"【{case_id}】✓ T3 重连成功: Worker 已上线，CTP 新会话已建立 ({_now_text()})，耗时 {elapsed}s")
-    log.info(f"【{case_id}】编排完成: T1→T2 断线 {int((t2-t1)*1000)}ms, 断线窗口 {disconnect_window_s}s, T2→T3 重连 {elapsed}s")
-
-    return True, {
-        "t1": t1,
-        "t2": t2,
-        "t3": t3,
-        "disconnect_window_s": disconnect_window_s,
-    }
-
 def _hard_disconnect_only(case_id: str) -> tuple[bool, dict]:
     ping_timeout_s = float(os.environ.get("HARD_DISCONNECT_PING_TIMEOUT_S", "10"))
 
@@ -382,74 +216,6 @@ def _hard_reconnect_only(case_id: str) -> tuple[bool, dict]:
     log.info(f"【{case_id}】重连模拟完成。新的 CTP 会话已就绪，可继续执行后续测试")
 
     return True, {"t3_start": t3_start, "t3": t3}
-
-def _run_2_5_1_orchestrate(case_id: str) -> tuple[bool, dict]:
-    """
-    编排 2.5.1 测试：
-    1. 调用 RPC 执行 2.5.1.1 和 2.5.1.2
-    2. 等待执行完成
-    3. 执行 2.5.1.3 (强制账号退出/Kill Worker)
-    """
-    # 1. 确保 Worker 启动
-    process_manager.start_worker()
-    if not _wait_ping_ok(10):
-         return False, {"reason": "ping_timeout_start"}
-
-    # 2. 调用 RPC 执行前两个子项
-    resp = rpc.request("RUN_CASE", {"case_id": case_id}, timeout=3.0)
-    if not resp.get("ok") or not resp.get("data", {}).get("accepted"):
-        return False, {"reason": "rpc_failed_or_busy", "resp": resp, "busy": True}
-
-    # 3. 等待 RPC 任务结束
-    log.info(f"【{case_id}】等待 2.5.1.1/2.5.1.2 执行完成...")
-    max_wait = 120 
-    start_wait = time.time()
-    rpc_finished = False
-    
-    while time.time() - start_wait < max_wait:
-        time.sleep(1)
-        status = None
-        try:
-            status = rpc.request("GET_STATUS", {}, timeout=2.0)
-        except:
-            pass
-            
-        if status and status.get("ok"):
-            data = status.get("data") or {}
-            # 当 busy 为 False 且 current_case_id 为 None 时认为结束
-            if not data.get("busy") and not data.get("current_case_id"):
-                rpc_finished = True
-                break
-    
-    if not rpc_finished:
-         return False, {"reason": "timeout_waiting_for_part1_2"}
-
-    # 4. 执行 2.5.1.3 强制退出
-    log.info(f"【{case_id}】2.5.1.3：强制账号退出（模拟断电/进程终止） {_now_text()}")
-    
-    t1 = time.time()
-    process_manager.kill_worker()
-    t2 = time.time()
-    log.info(f"【{case_id}】Worker 已终止")
-
-    disconnect_window_s = float(os.environ.get("HARD_DISCONNECT_WINDOW_S", "10"))
-    time.sleep(max(0.0, disconnect_window_s))
-
-    process_manager.start_worker()
-    
-    restart_ping_timeout_s = float(os.environ.get("HARD_DISCONNECT_RESTART_PING_TIMEOUT_S", "60"))
-    if not _wait_ping_ok(restart_ping_timeout_s):
-        return False, {"reason": "restart_failed_after_kill"}
-        
-    t3 = time.time()
-    log.info(f"【{case_id}】2.5.1.3：重连成功 {_now_text()}")
-
-    return True, {
-        "t1": t1,
-        "t2": t2,
-        "t3": t3,
-        "disconnect_window_s": disconnect_window_s
-    }
 
 @app.route('/api/run/<case_id>', methods=['POST'])
 def run_case(case_id):

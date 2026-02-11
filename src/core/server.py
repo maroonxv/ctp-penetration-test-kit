@@ -1,8 +1,8 @@
 import socket
 import threading
 import json
-from src import read_config as config
-from src.logger import log_info, log_error
+from src.config import reader as config
+from src.logging import log_info, log_error
 
 class CommandServer(threading.Thread):
     """

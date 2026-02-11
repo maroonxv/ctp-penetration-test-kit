@@ -1,21 +1,17 @@
 import time
-from datetime import datetime, time as dtime
-from typing import Optional
-try:
-    from zoneinfo import ZoneInfo
-except Exception:
-    ZoneInfo = None
 
-from src import read_config as config
-from src.logger import log_info
+from src.config import reader as config
+from src.logging import log_info
 from vnpy.trader.object import OrderRequest, CancelRequest
 from vnpy.trader.constant import Direction, Offset, OrderType
+
 
 def wait_for_reaction(seconds: int = config.ATOMIC_WAIT_SECONDS, msg: str = ""):
     """
     原子等待函数，确保网关/柜台有足够的时间处理请求。
     """
     time.sleep(seconds)
+
 
 def clean_environment(engine):
     """
@@ -81,32 +77,3 @@ def clean_environment(engine):
         log_info("环境清理完成。")
     else:
         log_info("当前无持仓。")
-
-def _now_cn() -> datetime:
-    if ZoneInfo is None:
-        return datetime.now()
-    return datetime.now(ZoneInfo("Asia/Shanghai"))
-
-def is_trading_time(now: Optional[datetime] = None) -> bool:
-    if now is None:
-        now = _now_cn()
-
-    weekday = now.weekday()
-    t = now.time()
-
-    sessions = [
-        (dtime(9, 0), dtime(10, 15)),
-        (dtime(10, 30), dtime(11, 30)),
-        (dtime(13, 0), dtime(15, 0)),
-        (dtime(21, 0), dtime(23, 59, 59)),
-        (dtime(0, 0), dtime(2, 30)),
-    ]
-
-    in_session = any(start <= t <= end for start, end in sessions)
-    if not in_session:
-        return False
-
-    if t < dtime(3, 0):
-        return weekday in (1, 2, 3, 4, 5)
-
-    return weekday in (0, 1, 2, 3, 4)

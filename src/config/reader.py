@@ -25,8 +25,8 @@ def load_yaml_config(config_path: str) -> Dict[str, Any]:
         except yaml.YAMLError:
             return {}
 
-# 路径配置
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 路径配置 — 多一层 dirname 因为从 src/ 移到了 src/config/
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ENV_PATH = os.path.join(PROJECT_ROOT, ".env")
 CONFIG_YAML_PATH = os.path.join(PROJECT_ROOT, "config.yaml")
 
@@ -43,7 +43,7 @@ def save_env(env_path: str, data: Dict[str, str]) -> None:
 
     new_lines = []
     processed_keys = set()
-    
+
     # 更新现有键值
     for line in lines:
         stripped = line.strip()

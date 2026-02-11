@@ -1,7 +1,7 @@
 import os
 import logging
 from datetime import datetime
-from src import read_config as config
+from src.config import reader as config
 
 def setup_logger():
     """
