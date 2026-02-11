@@ -2,7 +2,7 @@
 
 ## 项目综述
 
-本项目专为期货公司 **CTP 穿透测试** 需求设计，旨在帮助开发者和交易员快速验证交易程序的合规性与稳定性。工具基于 `vnpy` 框架开发，提供了一套自动化的测试用例集，覆盖了穿透测试报告中要求的关键测试点，包括连通性测试、基础交易功能、异常监测、风控阈值管理及应急处理功能。
+本项目专为期货公司 **CTP 穿透测试** 需求设计，旨在帮助开发者和交易员快速通过CTP穿透测试。工具基于 `vnpy` 框架开发，提供了一套自动化的测试用例集，覆盖了穿透测试报告中要求的关键测试点，包括连通性测试、基础交易功能、异常监测、风控阈值管理及应急处理功能。
 
 通过本项目，您可以：
 - 快速执行标准化的穿透测试流程。
@@ -13,53 +13,56 @@
 ### 项目结构
 
 ```text
-C:\USERS\ADMINISTRATOR\LAI\PENETRATION_TEST
-|   .env
-|   .env.example
-|   .gitignore
-|   config.yaml
-|   LICENSE
-|   README.md
-|   requirements.txt
-|   run.bat
-|
-+---doc
-|       architecture.md
-|       interaction.md
-|       log_capture_design.md
-|       method_design.md
-|       real_disconnect.md
-|       separate_flask_ctp.md
-|
-+---log
-|   \---宏源期货
-+---src
-|   |   logger.py
-|   |   read_config.py
-|   |   socket_handler.py
-|   |   utils.py
-|   |   worker.py
-|   |   __init__.py
-|   |
-|   +---core
-|   |   |   engine.py
-|   |   |   risk.py
-|   |   |   server.py
-|   |   |   __init__.py
-|   |
-|   +---tests
-|   |   |   cases.py
-|   |   |   __init__.py
-|   |
-|   +---web
-|   |   |   app.py
-|   |   |
-|   |   +---static
-|   |   |   \---css
-|   |   |           style.css
-|   |   |
-|   |   +---templates
-|   |   |       index.html
+├── .env.example              # 环境变量模板
+├── .gitignore
+├── config.yaml               # 测试合约与风控阈值配置
+├── LICENSE
+├── README.md
+├── requirements.txt
+├── run.bat                   # 一键启动脚本
+│
+├── doc/                      # 文档
+│
+├── lib/                      # 修改版第三方库（vnpy / vnpy_ctp / vnpy_ctptest）
+│
+└── src/
+    ├── __init__.py
+    ├── path_setup.py          # sys.path 注入唯一来源
+    │
+    ├── config/                # 配置加载
+    │   ├── __init__.py
+    │   └── reader.py          # .env / config.yaml 读写、全局常量
+    │
+    ├── logging/               # 日志系统
+    │   ├── __init__.py
+    │   ├── setup.py           # 日志初始化、log_info / log_warning / log_error
+    │   ├── color.py           # 统一日志颜色分配函数
+    │   └── handlers.py        # SocketIOHandler / QueueLogHandler
+    │
+    ├── core/                  # 交易核心
+    │   ├── __init__.py
+    │   ├── engine.py          # TestEngine（CTP 连接、报单、撤单、事件处理）
+    │   ├── risk.py            # 风控管理器
+    │   └── server.py          # RPC 命令服务器
+    │
+    ├── worker/                # Worker 子进程
+    │   ├── __init__.py
+    │   └── controller.py      # WorkerController + main()
+    │
+    ├── ctp_cases/             # CTP 穿透测试用例
+    │   ├── __init__.py
+    │   ├── cases.py           # 30+ 测试用例函数
+    │   └── helpers.py         # wait_for_reaction / clean_environment
+    │
+    └── web/                   # Web 控制台
+        ├── __init__.py
+        ├── app.py             # Flask 路由 + SocketIO 事件
+        ├── process_manager.py # Worker 进程管理
+        ├── rpc_client.py      # JSON-over-TCP RPC 客户端
+        ├── static/css/style.css
+        └── templates/
+            ├── index.html
+            └── login.html
 ```
 
 ## 2. 快速开始
@@ -71,7 +74,7 @@ C:\USERS\ADMINISTRATOR\LAI\PENETRATION_TEST
 ```bash
 # 克隆项目
 git clone https://github.com/maroonxv/ctp-penetration-test-kit.git
-cd penetration_test
+cd ctp-penetration-test-kit
 
 # 安装依赖
 pip install -r requirements.txt
@@ -98,11 +101,11 @@ python src/web/app.py
 
 ---
 
-## 3. 测试过程记录详情 (对应测试规范)
+## 3. 测试过程记录详情
 
-### 2.1. 接口适应性
+### 3.1. 接口适应性
 
-#### 2.1.1. 连通性
+#### 3.1.1. 连通性
 
 | 项目 | 内容 |
 | :--- | :--- |
@@ -112,7 +115,7 @@ python src/web/app.py
 | **判定** | |
 | **改善建议** | N/A |
 
-#### 2.1.2. 基础交易功能
+#### 3.1.2. 基础交易功能
 
 | 项目 | 内容 |
 | :--- | :--- |
@@ -122,9 +125,9 @@ python src/web/app.py
 | **判定** | |
 | **改善建议** | N/A |
 
-### 2.2. 异常监测
+### 3.2. 异常监测
 
-#### 2.2.1. 系统连接异常监测功能
+#### 3.2.1. 系统连接异常监测功能
 
 | 项目 | 内容 |
 | :--- | :--- |
@@ -134,7 +137,7 @@ python src/web/app.py
 | **判定** | |
 | **改善建议** | N/A |
 
-#### 2.2.2. 报撤单笔数监测功能
+#### 3.2.2. 报撤单笔数监测功能
 
 | 项目 | 内容 |
 | :--- | :--- |
@@ -144,7 +147,7 @@ python src/web/app.py
 | **判定** | |
 | **改善建议** | N/A |
 
-#### 2.2.3. 重复报单监测功能(选测项目)
+#### 3.2.3. 重复报单监测功能(选测项目)
 
 | 项目 | 内容 |
 | :--- | :--- |
@@ -154,9 +157,9 @@ python src/web/app.py
 | **判定** | |
 | **改善建议** | N/A |
 
-### 2.3. 阈值管理
+### 3.3. 阈值管理
 
-#### 2.3.1. 阈值设置及预警功能
+#### 3.3.1. 阈值设置及预警功能
 
 | 项目 | 内容 |
 | :--- | :--- |
@@ -166,9 +169,9 @@ python src/web/app.py
 | **判定** | |
 | **改善建议** | N/A |
 
-### 2.4. 错误防范
+### 3.4. 错误防范
 
-#### 2.4.1. 交易指令检查功能
+#### 3.4.1. 交易指令检查功能
 
 | 项目 | 内容 |
 | :--- | :--- |
@@ -178,7 +181,7 @@ python src/web/app.py
 | **判定** | |
 | **改善建议** | N/A |
 
-#### 2.4.2. 错误提示功能
+#### 3.4.2. 错误提示功能
 
 | 项目 | 内容 |
 | :--- | :--- |
@@ -188,9 +191,9 @@ python src/web/app.py
 | **判定** | |
 | **改善建议** | N/A |
 
-### 2.5. 应急处理
+### 3.5. 应急处理
 
-#### 2.5.1. 暂停交易功能
+#### 3.5.1. 暂停交易功能
 
 | 项目 | 内容 |
 | :--- | :--- |
@@ -200,7 +203,7 @@ python src/web/app.py
 | **判定** | |
 | **改善建议** | N/A |
 
-#### 2.5.2. 批量撤单功能（选测项目）
+#### 3.5.2. 批量撤单功能（选测项目）
 
 | 项目 | 内容 |
 | :--- | :--- |
@@ -210,9 +213,9 @@ python src/web/app.py
 | **判定** | |
 | **改善建议** | N/A |
 
-### 2.6. 日志记录
+### 3.6. 日志记录
 
-#### 2.6.1. 日志记录功能
+#### 3.6.1. 日志记录功能
 
 | 项目 | 内容 |
 | :--- | :--- |
@@ -221,3 +224,37 @@ python src/web/app.py
 | **测试过程** | 2.6.1.1：验证系统日志中会记录交易信息<br>2.6.1.2：验证系统日志中会记录系统运行信息<br>2.6.1.3：验证系统日志中会记录监测信息（补全）<br>2.6.1.4：验证系统日志中会记录错误提示信息（补全） |
 | **判定** | |
 | **改善建议** | N/A |
+
+
+## 4. 程序化证据收集工具使用指引
+
+
+为保证测试报告的有效性及与被测程序的关联性，测试完成后需收集程序化系统的相关信息作为电子化证据。根据程序部署形式的不同，分为以下两种情况。
+
+### 4.1 终端存在 Windows 客户端
+
+使用程序化证据收集工具进行电子化证据收集。
+
+1. **解压与启动**：将收到的压缩包解压至测试环境任意位置，运行文件夹内的 `Argus.exe`。
+
+   ![Argus 启动界面](doc/images/argus1.png)
+
+2. **生成电子证据**：点击「1. 选择文件」，选择正在测试的程序化交易系统启动文件（`.exe` / `.dll` 等），然后点击「2. 生成电子证据」。
+
+   ![选择文件并生成证据](doc/images/argus2.png)
+
+3. **获取证据文件**：提示"电子证据已成功生成并保存"后，在 `Argus.exe` 同级目录下会生成加密文件，命名格式为 `ArgusReport_操作日期_操作时间.dat`。
+
+   ![生成的证据文件](doc/images/argus3.png)
+
+### 4.2 终端仅有 Linux 服务
+
+无需使用 `Argus.exe`，直接通过命令行对程序启动文件生成 SHA256 摘要：
+
+```bash
+sha256sum 程序启动文件 > ArgusReport_yyyymmdd_HHMMSS.dat
+```
+
+> 时间戳按实际执行时间替换即可。
+
+
