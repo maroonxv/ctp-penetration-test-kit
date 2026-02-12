@@ -1,4 +1,4 @@
-# ctp-penetration-test-kit
+# ctp-penetration-test-kit —— 速通CTP穿透测试
 
 ## 项目综述
 
@@ -9,6 +9,18 @@
 - 自动生成部分测试记录日志。
 - 通过 Web 界面直观监控测试进度与资金状态。
 - 灵活配置测试合约与风控参数。
+
+### 界面预览
+
+<p align="center">
+  <img src="doc/images/web1.png" alt="登录界面" width="80%" />
+  <br><em>登录界面</em>
+</p>
+
+<p align="center">
+  <img src="doc/images/web2.png" alt="Web 控制台" width="80%" />
+  <br><em>Web 控制台</em>
+</p>
 
 ### 项目结构
 
