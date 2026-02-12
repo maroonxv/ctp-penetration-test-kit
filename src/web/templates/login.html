@@ -17,21 +17,20 @@
             max-width: 500px;
         }
         .login-title {
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--accent-color);
+            text-shadow: 0 0 12px var(--accent-glow);
             font-weight: bold;
         }
         .form-control {
-            background-color: var(--bg-card-hover);
+            background-color: var(--bg-input);
             border-color: var(--border-color);
             color: var(--text-primary);
         }
         .form-control:focus {
-            background-color: var(--bg-card-hover);
+            background-color: var(--bg-input);
             border-color: var(--accent-color);
             color: var(--text-primary);
-            box-shadow: 0 0 0 0.25rem rgba(41, 151, 255, 0.25);
+            box-shadow: 0 0 0 0.25rem var(--accent-glow);
         }
         .btn-primary {
             background: var(--accent-gradient);

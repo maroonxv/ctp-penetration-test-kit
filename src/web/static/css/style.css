@@ -1,17 +1,23 @@
 :root {
-    --bg-body: #000000;
-    --bg-sidebar: #161617;
-    --bg-card: #1c1c1e;
-    --bg-card-hover: #2c2c2e;
+    --bg-body: #0a0e1a;
+    --bg-sidebar: #161b28;
+    --bg-card: #1c2333;
+    --bg-card-hover: #2a3142;
     
-    --text-primary: #f5f5f7;
-    --text-secondary: #86868b;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
     
-    /* Apple-like Blue with a bit of gradient "vitality" */
-    --accent-color: #2997ff;
-    --accent-gradient: linear-gradient(135deg, #2997ff, #0077ed);
+    --accent-color: #58a6ff;
+    --accent-gradient: linear-gradient(135deg, #58a6ff, #1f6feb);
     
-    --border-color: #424245;
+    --border-color: #2d3548;
+    
+    --bg-input: #0d1117;
+    --bg-log: #0d1117;
+    --accent-glow: rgba(88, 166, 255, 0.15);
+    --success-color: #3fb950;
+    --danger-color: #f85149;
+    --warning-color: #d29922;
     
     --radius-l: 18px;
     --radius-m: 12px;
@@ -43,12 +49,15 @@ h1, h2, h3, h4, h5, h6 {
     padding-top: 2rem;
 }
 
-.sidebar h4 {
+.sidebar h4,
+.sidebar h2 {
     font-size: 1.2rem;
     margin-bottom: 1.5rem;
-    background: var(--accent-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent; /* Gradient Text */
+    color: var(--accent-color);
+    text-shadow: 0 0 12px var(--accent-glow);
+    -webkit-text-fill-color: var(--accent-color);
+    background: none;
+    -webkit-background-clip: unset;
     display: inline-block;
 }
 
@@ -66,6 +75,12 @@ h1, h2, h3, h4, h5, h6 {
     background-color: transparent !important;
     border: none !important;
     margin-bottom: 8px;
+    width: 100%;
+}
+
+.accordion-header {
+    margin: 0;
+    width: 100%;
 }
 
 .accordion-button {
@@ -74,15 +89,20 @@ h1, h2, h3, h4, h5, h6 {
     border-radius: var(--radius-m) !important;
     font-size: 0.95rem;
     font-weight: 500;
-    border: none !important;
+    border: 1px solid var(--border-color) !important;
     box-shadow: none !important;
     transition: background-color 0.2s ease;
+    padding-left: 16px;
+    padding-right: 16px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .accordion-button:not(.collapsed) {
     background-color: var(--bg-card-hover) !important;
     color: var(--accent-color) !important;
     box-shadow: none !important;
+    border-color: var(--border-color) !important;
 }
 
 .accordion-button::after {
@@ -90,7 +110,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .accordion-button:not(.collapsed)::after {
-    filter: invert(47%) sepia(86%) saturate(1478%) hue-rotate(193deg) brightness(101%) contrast(101%); /* Blue arrow */
+    filter: invert(55%) sepia(60%) saturate(1200%) hue-rotate(195deg) brightness(105%) contrast(100%); /* Teal-blue arrow */
 }
 
 .accordion-body {
@@ -110,43 +130,43 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Primary/Action Buttons (Ghost style default) */
 .btn-outline-light {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: var(--text-primary);
+    background-color: rgba(88, 166, 255, 0.08);
+    color: var(--accent-color);
 }
 
 .btn-outline-light:hover {
-    background-color: var(--text-primary);
-    color: #000;
+    background-color: rgba(88, 166, 255, 0.15);
+    color: var(--text-primary);
     transform: scale(1.02);
 }
 
 /* Warning Buttons */
 .btn-outline-warning {
-    background-color: rgba(255, 149, 0, 0.1);
-    color: #ff9f0a;
+    background-color: rgba(210, 153, 34, 0.1);
+    color: var(--warning-color);
 }
 .btn-outline-warning:hover {
-    background-color: #ff9f0a;
+    background-color: var(--warning-color);
     color: #000;
 }
 
 /* Danger Buttons */
 .btn-outline-danger {
-    background-color: rgba(255, 69, 58, 0.1);
-    color: #ff453a;
+    background-color: rgba(248, 81, 73, 0.1);
+    color: var(--danger-color);
 }
 .btn-outline-danger:hover {
-    background-color: #ff453a;
+    background-color: var(--danger-color);
     color: #fff;
 }
 .btn-danger {
-    background-color: #ff453a;
+    background-color: var(--danger-color);
     color: #fff;
 }
 
 /* Success/Reset Button */
 .btn-success {
-    background: linear-gradient(135deg, #30d158, #28cd41);
+    background: linear-gradient(135deg, var(--success-color), #28cd41);
     border: none;
     font-weight: 600;
 }
@@ -157,7 +177,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Log Container */
 #log-container {
-    background-color: #0d0d0e !important;
+    background-color: var(--bg-log) !important;
     border: 1px solid var(--border-color) !important;
     border-radius: var(--radius-m);
     margin: 20px;
@@ -165,14 +185,45 @@ h1, h2, h3, h4, h5, h6 {
     padding: 15px;
     font-family: "SF Mono", "Menlo", "Monaco", "Courier New", monospace;
     font-size: 13px;
-    line-height: 1.5;
+    line-height: 1.6;
     overflow-y: auto;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .log-line {
-    border-bottom: 1px solid #1a1a1a;
+    border-bottom: 1px solid rgba(45, 53, 72, 0.4);
     padding: 4px 0;
+}
+
+/* Modal */
+.modal-content {
+    background-color: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-m);
+}
+
+.modal .form-control {
+    background-color: var(--bg-input);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+.modal .form-control:focus {
+    background-color: var(--bg-input);
+    border-color: var(--accent-color);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 0.25rem var(--accent-glow);
+}
+
+.modal .btn-primary {
+    background: var(--accent-gradient);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+}
+
+.modal .btn-primary:hover {
+    opacity: 0.9;
 }
 
 /* Custom Scrollbar (Subtle) */
@@ -183,21 +234,21 @@ h1, h2, h3, h4, h5, h6 {
     background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-    background: #424245;
+    background: var(--border-color);
     border-radius: 5px;
     border: 3px solid transparent;
     background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background-color: #636366;
+    background-color: #8b949e;
 }
 
 /* Apple-style Toast Notification */
 .apple-toast {
-    background-color: rgba(28, 28, 30, 0.85) !important; /* Dark frosted glass */
+    background-color: rgba(28, 35, 51, 0.9) !important;
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid var(--border-color) !important;
     border-radius: 16px !important;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
     color: var(--text-primary) !important;
@@ -209,15 +260,15 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .apple-toast-warning {
-    border-left: 4px solid #ff9f0a !important;
+    border-left: 4px solid var(--warning-color) !important;
 }
 
 .apple-toast-danger {
-    border-left: 4px solid #ff453a !important;
+    border-left: 4px solid var(--danger-color) !important;
 }
 
 .apple-toast-success {
-    border-left: 4px solid #30d158 !important;
+    border-left: 4px solid var(--success-color) !important;
 }
 
 .apple-toast-title {
@@ -234,13 +285,13 @@ h1, h2, h3, h4, h5, h6 {
     white-space: pre-wrap;
 }
 
-/* Icon colors - override bootstrap text utilities if needed, but text-danger/warning usually work well */
+/* Icon colors */
 .apple-toast .text-danger {
-    color: #ff453a !important; /* Apple Red */
+    color: var(--danger-color) !important;
 }
 
 .apple-toast .text-warning {
-    color: #ff9f0a !important; /* Apple Orange */
+    color: var(--warning-color) !important;
 }
 
 /* Override Bootstrap toast default max-width if necessary */

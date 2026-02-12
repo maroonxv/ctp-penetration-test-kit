@@ -12,13 +12,13 @@
         <div class="row">
             <!-- 左侧控制栏 -->
             <div class="col-md-3 sidebar">
-                <h2 class="mb-4 ps-4">CTP 穿透测试</h4>
+                <h2 class="mb-4 ps-4" style="font-size: 1.6rem;">CTP 穿透测试</h2>
                 
                 <!-- 环境信息 -->
                 <div class="card mb-4 mx-2">
                     <div class="card-body py-3">
                         <small class="text-secondary text-uppercase" style="letter-spacing: 1px;">当前环境</small>
-                        <div class="fw-bold mt-1" style="color: #00ff88; font-size: 1.1em;">{{ env.CTP_NAME }}</div>
+                        <div class="fw-bold mt-1" style="color: var(--accent-color); font-size: 1.1em;">{{ env.CTP_NAME }}</div>
                         <div class="mt-1" style="font-size: 0.9em;">账户: {{ env.CTP_USERNAME }}</div>
                         <div class="mt-1" style="font-size: 0.9em;" title="{{ env.CTP_TD_SERVER }}">交易服务器: {{ env.CTP_TD_SERVER }}</div>
                         <div class="mt-1" style="font-size: 0.9em;" title="{{ env.CTP_MD_SERVER }}">行情服务器: {{ env.CTP_MD_SERVER }}</div>
@@ -39,7 +39,7 @@
                 </div>
 
                 <!-- 测试控制按钮 -->
-                <div class="accordion" id="testAccordion">
+                <div class="accordion mx-2" id="testAccordion">
                     <!-- 2.1 基础 -->
                     <div class="accordion-item">
                         <h2 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#c21">接口适应性</button></h2>
@@ -407,7 +407,7 @@
                 iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`;
             } else if (variant === 'success') {
                 variantClass = 'apple-toast-success';
-                iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success" style="color: #30d158;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
+                iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success" style="color: var(--success-color);"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
             } else {
                 // warning or default
                 variantClass = 'apple-toast-warning';
